@@ -24,6 +24,7 @@
     "motion": "^12.23.13",
     "next": "15.5.7",
     "postcss": "^8.5.6",
+    "prop-types": "^15.8.1",
     "react": "19.1.2",
     "react-dom": "19.1.2",
     "react-dropzone": "^14.3.8",
@@ -42,10 +43,7 @@
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^5.16.4",
-    "@testing-library/react": "^13.2.0",
     "autoprefixer": "^10.4.21",
-    "jest": "^28.1.0",
-    "jest-environment-jsdom": "^28.1.0"
+    "typescript": "5.8.3"
   }
 }

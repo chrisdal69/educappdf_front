@@ -13,7 +13,6 @@ import {
   Popover,
   Radio,
   Select,
-  Tooltip,
   Upload,
 } from "antd";
 import JSZip from "jszip";
@@ -30,6 +29,7 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
+import Tooltip from "./TooltipClickClose";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";

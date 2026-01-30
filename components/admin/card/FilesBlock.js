@@ -8,7 +8,6 @@ import {
   Popconfirm,
   Popover,
   Select,
-  Tooltip,
   Upload,
   message,
 } from "antd";
@@ -30,6 +29,7 @@ import { useRouter } from "next/router";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
+import Tooltip from "./TooltipClickClose";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";

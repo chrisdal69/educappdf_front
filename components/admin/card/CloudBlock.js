@@ -10,7 +10,6 @@ import {
   Popover,
   Select,
   Image,
-  Tooltip,
 } from "antd";
 import NextImage from "next/image";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
@@ -38,6 +37,7 @@ import {
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
+import Tooltip from "./TooltipClickClose";
 import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;

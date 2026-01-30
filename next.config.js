@@ -7,6 +7,7 @@ const nextConfig = {
       new URL(`https://storage.googleapis.com/${process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"}/**`),     
       new URL("https://upload.wikimedia.org/wikipedia/**"),
     ],
+    minimumCacheTTL: 2678400,
   },
   async rewrites() {
     if (!urlBack) return [];

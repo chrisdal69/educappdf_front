@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Image from "next/image";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
-import { Button, Drawer, Tooltip, message } from "antd";
+import { Button, Drawer, message } from "antd";
 import { useRouter } from "next/router";
 import {
   AlignCenterOutlined,
@@ -22,6 +22,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
+import Tooltip from "./TooltipClickClose";
 import {
   createEditor,
   Editor,
@@ -305,6 +306,10 @@ export default function Contenu({
   };
 
   const handleOpenEditor = () => {
+    if (isEditorOpen) {
+      setIsEditorOpen(false);
+      return;
+    }
     setDraftContent(JSON.parse(JSON.stringify(normalizeContent(localContent))));
     setEditorKey((prev) => prev + 1);
     setIsEditorOpen(true);
@@ -577,7 +582,7 @@ export default function Contenu({
                   />
                 </Tooltip>
               </div>
-              <div className="mt-3 space-y-2 text-sm text-gray-800">
+              <div className="mt-3 space-y-2 text-base leading-relaxed text-gray-800 ">
                 {displayContent && displayContent.length ? (
                   renderSlateNodes(normalizeContent(displayContent))
                 ) : (
@@ -649,95 +654,117 @@ export default function Contenu({
           height="50vh"
           mask={false}
           zIndex={DRAWER_Z_INDEX}
+          styles={{
+            wrapper: {
+              height: "50vh",
+            },
+            content: {
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+            },
+            body: {
+              padding: 16,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+            },
+          }}
           drawerRender={(node) => (
             <>
-              {isEditorOpen && <div className="drawer-backdrop" />}
+              {isEditorOpen && <div className="drawer-backdrop " />}
               <div className="drawer-foreground">{node}</div>
             </>
           )}
           destroyOnClose
         >
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-1 flex-col gap-4 min-h-0">
             <Slate
               key={editorKey}
               editor={editor}
               initialValue={normalizeContent(draftContent)}
               onChange={setDraftContent}
             >
-              <div className="flex flex-wrap gap-2">
-                <MarkButton
-                  format="bold"
-                  label="Gras"
-                  icon={<BoldOutlined />}
-                />
-                <MarkButton
-                  format="italic"
-                  label="Italique"
-                  icon={<ItalicOutlined />}
-                />
-                <MarkButton
-                  format="underline"
-                  label="Souligne"
-                  icon={<UnderlineOutlined />}
-                />
-                <BlockButton
-                  format="bulleted-list"
-                  label="Liste"
-                  icon={<UnorderedListOutlined />}
-                />
-                <BlockButton
-                  format="numbered-list"
-                  label="Liste numerotee"
-                  icon={<OrderedListOutlined />}
-                />
-                <BlockButton
-                  format="left"
-                  label="Aligner a gauche"
-                  icon={<AlignLeftOutlined />}
-                />
-                <BlockButton
-                  format="center"
-                  label="Centrer"
-                  icon={<AlignCenterOutlined />}
-                />
-                <BlockButton
-                  format="right"
-                  label="Aligner a droite"
-                  icon={<AlignRightOutlined />}
-                />
-                <BlockButton
-                  format="justify"
-                  label="Justifier"
-                  icon={<BarsOutlined />}
-                />
+              <div className="flex flex-1 flex-col gap-3 min-h-0">
+                <div className="flex flex-wrap gap-2">
+                  <MarkButton
+                    format="bold"
+                    label="Gras"
+                    icon={<BoldOutlined />}
+                  />
+                  <MarkButton
+                    format="italic"
+                    label="Italique"
+                    icon={<ItalicOutlined />}
+                  />
+                  <MarkButton
+                    format="underline"
+                    label="Souligne"
+                    icon={<UnderlineOutlined />}
+                  />
+                  <BlockButton
+                    format="bulleted-list"
+                    label="Liste"
+                    icon={<UnorderedListOutlined />}
+                  />
+                  <BlockButton
+                    format="numbered-list"
+                    label="Liste numerotee"
+                    icon={<OrderedListOutlined />}
+                  />
+                  <BlockButton
+                    format="left"
+                    label="Aligner a gauche"
+                    icon={<AlignLeftOutlined />}
+                  />
+                  <BlockButton
+                    format="center"
+                    label="Centrer"
+                    icon={<AlignCenterOutlined />}
+                  />
+                  <BlockButton
+                    format="right"
+                    label="Aligner a droite"
+                    icon={<AlignRightOutlined />}
+                  />
+                  <BlockButton
+                    format="justify"
+                    label="Justifier"
+                    icon={<BarsOutlined />}
+                  />
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <Editable
+                    className="min-h-[220px] text-base leading-loose rounded border border-slate-300 p-3"
+                    renderElement={renderElement}
+                    renderLeaf={renderLeaf}
+                    placeholder="Texte et formules avec $...$"
+                    spellCheck
+                  />
+                  <p className="mt-4 text-xs text-gray-500">
+                    Utiliser $...$ pour les formules inline.
+                  </p>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">{formulaLinks}</div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="primary"
+                        icon={<CheckOutlined />}
+                        loading={isSavingContent}
+                        onClick={handleSaveContent}
+                      >
+                        Valider
+                      </Button>
+                      <Button icon={<CloseOutlined />} onClick={handleCloseEditor}>
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <Editable
-                className="mt-3 min-h-[220px] rounded border border-slate-300 p-3"
-                renderElement={renderElement}
-                renderLeaf={renderLeaf}
-                placeholder="Texte et formules avec $...$"
-                spellCheck
-              />
             </Slate>
-            <p className="text-xs text-gray-500">
-              Utiliser $...$ pour les formules inline.
-            </p>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">{formulaLinks}</div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="primary"
-                  icon={<CheckOutlined />}
-                  loading={isSavingContent}
-                  onClick={handleSaveContent}
-                >
-                  Valider
-                </Button>
-                <Button icon={<CloseOutlined />} onClick={handleCloseEditor}>
-                  Annuler
-                </Button>
-              </div>
-            </div>
           </div>
         </Drawer>
       </div>

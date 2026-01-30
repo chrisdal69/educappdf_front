@@ -1,4 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
@@ -12,7 +19,6 @@ import {
   Modal,
   Popover,
   Select,
-  Tooltip,
   Upload,
 } from "antd";
 import JSZip from "jszip";
@@ -28,6 +34,7 @@ import {
 } from "@ant-design/icons";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
+import Tooltip from "./TooltipClickClose";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";

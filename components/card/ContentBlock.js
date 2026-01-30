@@ -234,7 +234,7 @@ export default function Contenu({
           if (i >= totalSteps) {
             clearInterval(timer);
           }
-        }, 15);
+        }, 5);
       }
     } else {
       setTypedStep(0);
@@ -280,7 +280,7 @@ export default function Contenu({
 
   return (
     <div ref={contentRef} className="group relative w-full min-h-[150px] ">
-      <div className="flex flex-col break-words whitespace-pre-line min-w-0 mx-5 relative z-20">
+      <div className="flex flex-col break-words leading-relaxed text-base whitespace-pre-line min-w-0 mx-5 relative z-20">
         {shouldShowText && (
           <div className="break-words w-full min-w-0 ">{typedNodes}</div>
         )}

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
-import { Button, Carousel, Input, Popover, Select, Tooltip, message } from "antd";
+import { Button, Carousel, Input, Popover, Select, message } from "antd";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   CheckOutlined,
@@ -13,6 +13,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
+import Tooltip from "./TooltipClickClose";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";

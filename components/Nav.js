@@ -197,7 +197,7 @@ export default function Nav(props) {
           border-radius: 5px;
           padding: 0px 0;
           box-shadow: 0 14px 28px rgba(0, 0, 0, 0.2);
-          z-index: 10;
+          z-index: 30;
           transform: translateX(-100%);
           opacity: 0;
           pointer-events: none;

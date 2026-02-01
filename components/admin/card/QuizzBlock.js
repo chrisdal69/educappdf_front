@@ -1762,7 +1762,7 @@ export default function Quizz({
                             return (
                               <li
                                 key={`${q.id}-${optionIndex}`}
-                                className="flex flex-col gap-1 rounded border border-gray-200 bg-gray-200 px-2 py-1 sm:flex-row sm:items-start sm:justify-between"
+                                className="flex flex-row flex-wrap gap-1 rounded border-gray-200 bg-gray-200 px-2 py-1 items-start justify-between"
                               >
                                 <div className="flex-1 flex items-start gap-2">
                                   <Radio
@@ -1797,7 +1797,7 @@ export default function Quizz({
                                     </p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 ">
                                   <Popover
                                     trigger="click"
                                     open={editOpen}

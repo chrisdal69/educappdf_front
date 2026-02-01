@@ -293,7 +293,7 @@ const App = ({ repertoire }) => {
               >
                 <motion.div
                   layoutId={`card-${expandedId}`}
-                  className="relative w-full max-w-5xl max-h-[calc(100vh-2rem)] overflow-y-auto"
+                  className="relative w-full max-w-5xl max-h-[calc(85vh-2rem)] overflow-y-auto"
                   transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
                   onClick={(e) => e.stopPropagation()}
                 >

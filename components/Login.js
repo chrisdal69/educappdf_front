@@ -53,7 +53,6 @@ export default function Login(props) {
       });
 
       const response = await res.json();
-      console.log("response de login.js ", res, response);
 
       if (res.ok) {
         dispatch(

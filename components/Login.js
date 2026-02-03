@@ -6,11 +6,12 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/router";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { setAuthenticated, clearAuth } from "../reducers/authSlice";
+
 const NODE_ENV = process.env.NODE_ENV;
-const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
+
 const schema = yup.object().shape({
   email: yup
     .string()
@@ -21,11 +22,14 @@ const schema = yup.object().shape({
 
 export default function Login(props) {
   const router = useRouter();
+  const dispatch = useDispatch();
+
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [serverMessage, setServerMessage] = useState("");
   const [multipleClasses, setmultipleClasses] = useState(false);
-
-  const dispatch = useDispatch(); // ✅ initialisation du dispatch
+  const [availableClasses, setAvailableClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [isValidatingClass, setIsValidatingClass] = useState(false);
 
   const {
     register,
@@ -37,14 +41,90 @@ export default function Login(props) {
     mode: "onChange",
     defaultValues: { email: "", password: "" },
   });
+
   const busy = isSubmitting;
+
+  const getTargetPath = (role) => {
+    const fromPath = router.asPath;
+
+    if (role !== "admin") {
+      if (fromPath === "/") return "/";
+      if (fromPath === "/ciel1") return "/ciel1";
+      if (fromPath === "/python") return "/python";
+      return "/";
+    }
+
+    if (fromPath === "/") return "/";
+    if (fromPath === "/ciel1") return "/admin/ciel1";
+    if (fromPath === "/python") return "/admin/python";
+    return "/admin";
+  };
+
+  const finalizeLoginWithClass = async (classId) => {
+    setIsValidatingClass(true);
+
+    try {
+      const res = await fetch(`${urlFetch}/auth/login/select-class`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ classId }),
+        credentials: "include",
+      });
+
+      const response = await res.json();
+
+      if (!res.ok) {
+        setServerMessage(response.message || "Erreur de connexion.");
+        if (res.status === 401 || res.status === 403) {
+          setmultipleClasses(false);
+          setAvailableClasses([]);
+          setSelectedClassId("");
+        }
+        return false;
+      }
+
+      dispatch(
+        setAuthenticated({
+          email: response.email,
+          nom: response.nom,
+          prenom: response.prenom,
+          role: response.role,
+          classId: response.classId,
+          name: response.name,
+          directory: response.directory,
+          tabs: response.tabs,
+        })
+      );
+      console.log('role,name,directory,tabs : ',response.role, response.name,response.directory,response.tabs)
+      reset({ email: "", password: "" });
+      setServerMessage("");
+      setmultipleClasses(false);
+      setAvailableClasses([]);
+      setSelectedClassId("");
+
+      props.close();
+      router.push(getTargetPath(response.role));
+      return true;
+    } catch (err) {
+      setServerMessage("Erreur serveur.");
+      return false;
+    } finally {
+      setIsValidatingClass(false);
+    }
+  };
+
   useEffect(() => {
     if (props.isOpen) {
       reset({ email: "", password: "" });
       setServerMessage("");
       setPasswordVisible(false);
+      setmultipleClasses(false);
+      setAvailableClasses([]);
+      setSelectedClassId("");
+      setIsValidatingClass(false);
     }
   }, [props.isOpen, reset]);
+
   const onSubmit = async (data) => {
     try {
       const res = await fetch(`${urlFetch}/auth/login`, {
@@ -56,70 +136,84 @@ export default function Login(props) {
 
       const response = await res.json();
 
-      if (res.ok) {
-        dispatch(
-          setAuthenticated({
-            email: response.email,
-            nom: response.nom,
-            prenom: response.prenom,
-            role: response.role,
-          }),
-        );
-        reset({ email: "", password: "" });
-        props.close();
-
-        const fromPath = router.asPath;
-
-        const target = (() => {
-          if (response.role !== "admin") {
-            if (fromPath === "/") {
-              return "/";
-            }
-            if (fromPath === "/ciel1") {
-              return "/ciel1";
-            }
-            if (fromPath === "/python") {
-              return "/python";
-            }
-            return "/";
-          } else {
-            if (fromPath === "/") {
-              return "/";
-            }
-            if (fromPath === "/ciel1") {
-              return "/admin/ciel1";
-            }
-            if (fromPath === "/python") {
-              return "/admin/python";
-            }
-            return "/admin";
-          }
-        })();
-
-        setmultipleClasses(true);
-
-        //router.push(target);
-      } else {
+      if (!res.ok) {
         setServerMessage(response.message || "Erreur de connexion.");
+        return;
       }
+
+      const teachersClasses = Array.isArray(response.teachersClasses)
+        ? response.teachersClasses
+        : [];
+      const followedClasses = Array.isArray(response.followedClasses)
+        ? response.followedClasses
+        : [];
+      
+      const classMap = new Map();
+
+      teachersClasses.forEach((cl) => {
+        if (cl?.id) {
+          classMap.set(String(cl.id), {
+            id: String(cl.id),
+            name: cl.name || "Classe sans nom",
+          });
+        }
+      });
+
+      followedClasses.forEach((cl) => {
+        if (cl?.id && !classMap.has(String(cl.id))) {
+          classMap.set(String(cl.id), {
+            id: String(cl.id),
+            name: cl.name || "Classe sans nom",
+          });
+        }
+      });
+
+      const allClasses = Array.from(classMap.values());
+
+
+      if (allClasses.length === 0) {
+        dispatch(clearAuth());
+        setmultipleClasses(false);
+        setAvailableClasses([]);
+        setSelectedClassId("");
+        setServerMessage("Cet utilisateur n'est inscrit à aucun cours");
+        return;
+      }
+
+      if (allClasses.length === 1) {
+        await finalizeLoginWithClass(allClasses[0].id);
+        return;
+      }
+
+      setServerMessage("");
+      setAvailableClasses(allClasses);
+      setSelectedClassId("");
+      setmultipleClasses(true);
     } catch (err) {
       setServerMessage("Erreur serveur.");
     }
   };
 
+  const handleClassValidation = async () => {
+    if (!selectedClassId) {
+      setServerMessage("Veuillez sélectionner une classe.");
+      return;
+    }
+
+    await finalizeLoginWithClass(selectedClassId);
+  };
+
   return (
     <div
       className="max-w-md mx-auto mt-10 rounded-xl shadow-lg p-6 bg-gray-100 relative"
-      aria-busy={isSubmitting}
+      aria-busy={isSubmitting || isValidatingClass}
     >
       {!multipleClasses && (
         <div>
           <h2 className="text-2xl font-semibold text-center mb-6">Se loguer</h2>
 
           {serverMessage && (
-            <p className="text-center text-sm mb-4 text-red-600">
-              {serverMessage}
-            </p>
+            <p className="text-center text-sm mb-4 text-red-600">{serverMessage}</p>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -141,9 +235,7 @@ export default function Login(props) {
                 disabled={busy}
               />
               {errors.email && (
-                <p className="text-red-600 text-sm mt-1">
-                  {errors.email.message}
-                </p>
+                <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
               )}
             </div>
 
@@ -239,7 +331,46 @@ export default function Login(props) {
           )}
         </div>
       )}
-      {multipleClasses && <div className="">hello</div>}
+
+      {multipleClasses && (
+        <div>
+          <h2 className="text-2xl font-semibold text-center mb-6">
+            Choisissez une classe
+          </h2>
+
+          {serverMessage && (
+            <p className="text-center text-sm mb-4 text-red-600">{serverMessage}</p>
+          )}
+
+          <div className="space-y-2 mb-6">
+            {availableClasses.map((cl) => (
+              <label
+                key={cl.id}
+                className="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-3 py-2"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedClassId === cl.id}
+                  onChange={() =>
+                    setSelectedClassId((prev) => (prev === cl.id ? "" : cl.id))
+                  }
+                  disabled={isValidatingClass}
+                />
+                <span className="text-sm text-gray-800">{cl.name}</span>
+              </label>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClassValidation}
+            disabled={!selectedClassId || isValidatingClass}
+            className="w-full py-3 text-lg rounded-lg bg-gray-900 text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
+          >
+            {isValidatingClass ? "Validation..." : "Valider"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

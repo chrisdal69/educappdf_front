@@ -7,7 +7,7 @@ import { useSelector } from "react-redux";
 import Modal from "./Modal";
 
 const { Header } = Layout;
-const DEFAULT_TABS = ["Maths", "Python"];
+const DEFAULT_TABS = ["Maths"];
 
 const stripAccents = (value) =>
   value
@@ -38,7 +38,7 @@ export default function Nav(props) {
   const router = useRouter();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const isAdmin = isAuthenticated && user?.role === "admin";
-  const tabs = buildTabs(user?.tabs);
+  const tabs = isAuthenticated ? buildTabs(user?.tabs) : [];
   const slugToTab = tabs.reduce((acc, tab, index) => {
     acc[tab.slug] = String(index + 2);
     return acc;
@@ -48,7 +48,6 @@ export default function Nav(props) {
   } = theme.useToken();
 
   const pathToKey = {
-    "/": "home",
     "/signup": "account",
     "/forgot": "account",
     "/changepassword": "account",
@@ -64,16 +63,16 @@ export default function Nav(props) {
   const dynamicKey = slugToTab[rawRepertoire];
 
   const selectedKey = !router.isReady
-    ? "home"
+    ? undefined
     : router.pathname === "/admin"
     ? undefined
     : isDynamicRoute
-    ? (router.pathname === "/admin/[repertoire]"
-        ? dynamicKey
-          ? `admin:${dynamicKey}`
-          : "home"
-        : dynamicKey || "home")
-    : pathToKey[router.pathname] || "home";
+    ? router.pathname === "/admin/[repertoire]"
+      ? dynamicKey
+        ? `admin:${dynamicKey}`
+        : undefined
+      : dynamicKey
+    : pathToKey[router.pathname];
 
   const selectedKeys = selectedKey ? [selectedKey] : [];
 
@@ -92,11 +91,6 @@ export default function Nav(props) {
     : [];
 
   const items = [
-    {
-      key: "home",
-      label: <Link href="/">Accueil</Link>,
-      className: "nav-item",
-    },
     ...publicItems,
     ...adminItems,
     {

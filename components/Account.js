@@ -1,12 +1,11 @@
 import Link from "next/link";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
-import { setAuthenticated, clearAuth } from "../reducers/authSlice";
+import { clearAuth } from "../reducers/authSlice";
 import { setCardsMaths } from "../reducers/cardsMathsSlice";
 
 const NODE_ENV = process.env.NODE_ENV;
-const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
 
 
@@ -31,6 +30,11 @@ export default function Account(props) {
         isAdmin && dispatch(setCardsMaths([]));
         console.log("✅ Déconnexion réussie ", response , isAdmin);
         props.close();
+        if (typeof window !== "undefined") {
+          window.location.replace("/");
+          return;
+        }
+        router.push("/");
       } else {
         setMessage("Erreur lors de la déconnexion.");
       }

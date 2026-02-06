@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout, Menu, theme } from "antd";
 import { CloseOutlined, MenuOutlined, UserOutlined } from "@ant-design/icons";
 import Link from "next/link";
@@ -35,10 +35,23 @@ const buildTabs = (rawTabs) => {
 
 export default function Nav(props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [useMobileMenu, setUseMobileMenu] = useState(false);
+  const headerWidthRef = useRef(null);
+  const menuMeasureRef = useRef(null);
   const router = useRouter();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const isAdmin = isAuthenticated && user?.role === "admin";
   const tabs = isAuthenticated ? buildTabs(user?.tabs) : [];
+  const tabsSignature = useMemo(
+    () => tabs.map((tab) => tab.slug).join("|"),
+    [tabs]
+  );
+  const menuSignature = useMemo(() => {
+    const roleKey = isAdmin ? "admin" : "user";
+    const authKey = isAuthenticated ? "auth" : "guest";
+    const nameKey = isAuthenticated ? `${user?.prenom || ""}|${user?.nom || ""}` : "";
+    return `${authKey}|${roleKey}|${tabsSignature}|${nameKey}`;
+  }, [isAdmin, isAuthenticated, tabsSignature, user?.nom, user?.prenom]);
   const slugToTab = tabs.reduce((acc, tab, index) => {
     acc[tab.slug] = String(index + 2);
     return acc;
@@ -101,42 +114,140 @@ export default function Nav(props) {
     },
   ];
 
+  useEffect(() => {
+    if (!useMobileMenu && menuOpen) {
+      setMenuOpen(false);
+    }
+  }, [menuOpen, useMobileMenu]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    let rafId;
+    const MIN_MOBILE_PX = 770;
+    const TOGGLE_RESERVE_PX = 56;
+    const SAFETY_PX = 12;
+
+    const computeUseMobileMenu = () => {
+      const viewportWidth = window.innerWidth || 0;
+      if (viewportWidth <= MIN_MOBILE_PX) {
+        return true;
+      }
+
+      const headerWrapper = headerWidthRef.current;
+      const headerElement = headerWrapper?.querySelector?.(".nav-header");
+      const headerBoxWidth =
+        headerElement?.getBoundingClientRect?.().width ||
+        headerWrapper?.getBoundingClientRect?.().width ||
+        viewportWidth;
+      const headerStyles = headerElement ? window.getComputedStyle(headerElement) : null;
+      const headerPaddingLeft = headerStyles ? Number.parseFloat(headerStyles.paddingLeft) : 0;
+      const headerPaddingRight = headerStyles ? Number.parseFloat(headerStyles.paddingRight) : 0;
+      const headerContentWidth = Math.max(
+        0,
+        headerBoxWidth - headerPaddingLeft - headerPaddingRight
+      );
+
+      const measureRoot = menuMeasureRef.current;
+      const menuElement = measureRoot?.querySelector?.(".nav-menu--measure");
+      const requiredWidth = menuElement?.getBoundingClientRect?.().width || 0;
+      if (!requiredWidth) {
+        return false;
+      }
+
+      return (
+        requiredWidth + TOGGLE_RESERVE_PX + SAFETY_PX > headerContentWidth
+      );
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          setUseMobileMenu(computeUseMobileMenu());
+        });
+      });
+    };
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+
+    let resizeObserver;
+    if (typeof window.ResizeObserver !== "undefined") {
+      resizeObserver = new window.ResizeObserver(() => scheduleUpdate());
+      if (headerWidthRef.current) {
+        resizeObserver.observe(headerWidthRef.current);
+      }
+      if (menuMeasureRef.current) {
+        resizeObserver.observe(menuMeasureRef.current);
+      }
+    }
+
+    return () => {
+      window.removeEventListener("resize", scheduleUpdate);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [menuSignature]);
+
   const navColors = {
     bg: props.bg,
     border: "#222",
     tabBorder: "#000",
     text: "#333",
-    textSize: "18px",
+    textSize: "20px",
     selectedBg: props.selectedBg,
     selectedText: "#0f172a",
     hoverBg: "#fff",
   };
 
   return (
-    <div className="nav-root">
-      <Header
-        className="nav-header"
-        style={{ display: "flex", alignItems: "center" }}
-      >
-        <Menu
-          className="nav-menu nav-menu--desktop"
-          theme="dark"
-          mode="horizontal"
-          selectedKeys={selectedKeys}
-          items={items}
-          style={{ flex: 1, justifyContent: "flex-end" }}
-        />
-        <button
-          type="button"
-          className="nav-toggle"
-          aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
-          aria-expanded={menuOpen}
-          aria-controls="nav-drawer"
-          onClick={() => setMenuOpen((open) => !open)}
+    <div className={`nav-root${useMobileMenu ? " nav-root--mobile" : ""}`}>
+      <div className="nav-measure" aria-hidden="true">
+        <div ref={menuMeasureRef}>
+          <Menu
+            className="nav-menu nav-menu--measure"
+            theme="dark"
+            mode="horizontal"
+            selectedKeys={selectedKeys}
+            items={items}
+          />
+        </div>
+      </div>
+
+      <div ref={headerWidthRef}>
+        <Header
+          className="nav-header"
+          style={{ display: "flex", alignItems: "center" }}
         >
-          {menuOpen ? <CloseOutlined /> : <MenuOutlined />}
-        </button>
-      </Header>
+          <Menu
+            className="nav-menu nav-menu--desktop"
+            theme="dark"
+            mode="horizontal"
+            selectedKeys={selectedKeys}
+            items={items}
+            style={{ flex: 1, justifyContent: "flex-end" }}
+          />
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-expanded={menuOpen}
+            aria-controls="nav-drawer"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? <CloseOutlined /> : <MenuOutlined />}
+          </button>
+        </Header>
+      </div>
       <div
         className={`nav-drawer ${menuOpen ? "nav-drawer--open" : ""}`}
         id="nav-drawer"
@@ -153,6 +264,23 @@ export default function Nav(props) {
       <style jsx global>{`
         .nav-root {
           position: relative;
+          width: 100%;
+        }
+        .nav-measure {
+          position: fixed;
+          left: -10000px;
+          top: -10000px;
+          visibility: hidden;
+          pointer-events: none;
+          height: 0;
+          overflow: hidden;
+        }
+        .nav-measure > div {
+          display: inline-block;
+        }
+        .nav-measure .nav-menu--measure.ant-menu {
+          display: inline-flex;
+          width: max-content;
         }
         .nav-header {
           background: ${navColors.bg};
@@ -171,6 +299,12 @@ export default function Nav(props) {
           cursor: pointer;
           margin-left: -30px;
           margin-top: 10px;
+        }
+        .nav-root--mobile .nav-menu--desktop {
+          display: none;
+        }
+        .nav-root--mobile .nav-toggle {
+          display: inline-flex;
         }
         .nav-drawer {
           position: absolute;
@@ -412,11 +546,6 @@ export default function Nav(props) {
           }
           .nav-toggle {
             display: inline-flex;
-          }
-        }
-        @media (min-width: 771px) {
-          .nav-drawer {
-            display: none;
           }
         }
       `}</style>

@@ -3,37 +3,55 @@ import { Layout, Menu, theme } from "antd";
 import { CloseOutlined, MenuOutlined, UserOutlined } from "@ant-design/icons";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useDispatch, useSelector } from "react-redux";
-import { setAuthenticated, clearAuth } from "../reducers/authSlice";
+import { useSelector } from "react-redux";
 import Modal from "./Modal";
 
 const { Header } = Layout;
+const DEFAULT_TABS = ["Maths", "Python"];
+
+const stripAccents = (value) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const toSlug = (value) =>
+  stripAccents(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const buildTabs = (rawTabs) => {
+  const sourceTabs =
+    Array.isArray(rawTabs) && rawTabs.length ? rawTabs : DEFAULT_TABS;
+
+  return sourceTabs
+    .map((tab) => (typeof tab === "string" ? tab.trim() : ""))
+    .filter(Boolean)
+    .map((label, index) => ({
+      label,
+      slug: toSlug(label) || `onglet-${index + 1}`,
+    }));
+};
 
 export default function Nav(props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
-  const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const isAdmin = isAuthenticated && user?.role === "admin";
+  const tabs = buildTabs(user?.tabs);
+  const slugToTab = tabs.reduce((acc, tab, index) => {
+    acc[tab.slug] = String(index + 2);
+    return acc;
+  }, {});
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
   const pathToKey = {
-    "/": "1",
-    "/signup": "6",
-    "/forgot": "6",
-    "/changepassword": "6",
-  };
-
-  const keyByRepertoire = {
-    ciel1: "2",
-    python: "3",
-  };
-
-  const adminKeyByRepertoire = {
-    ciel1: "4",
-    python: "5",
+    "/": "home",
+    "/signup": "account",
+    "/forgot": "account",
+    "/changepassword": "account",
   };
 
   const isDynamicRoute =
@@ -43,79 +61,51 @@ export default function Nav(props) {
   const rawRepertoire = Array.isArray(router.query.repertoire)
     ? router.query.repertoire[0]
     : router.query.repertoire;
+  const dynamicKey = slugToTab[rawRepertoire];
 
   const selectedKey = !router.isReady
-    ? "1"
+    ? "home"
     : router.pathname === "/admin"
     ? undefined
     : isDynamicRoute
     ? (router.pathname === "/admin/[repertoire]"
-        ? adminKeyByRepertoire[rawRepertoire]
-        : keyByRepertoire[rawRepertoire]) || "1"
-    : pathToKey[router.pathname] || "1";
+        ? dynamicKey
+          ? `admin:${dynamicKey}`
+          : "home"
+        : dynamicKey || "home")
+    : pathToKey[router.pathname] || "home";
 
   const selectedKeys = selectedKey ? [selectedKey] : [];
 
-  let items;
-  if (!isAdmin) {
-    items = [
-      {
-        key: "1",
-        label: <Link href="/">Accueil</Link>,
+  const publicItems = tabs.map((tab, index) => ({
+    key: String(index + 2),
+    label: <Link href={`/${tab.slug}`}>{tab.label}</Link>,
+    className: "nav-item",
+  }));
+
+  const adminItems = isAdmin
+    ? tabs.map((tab, index) => ({
+        key: `admin:${index + 2}`,
+        label: <Link href={`/admin/${tab.slug}`}>{`A_${tab.label}`}</Link>,
         className: "nav-item",
-      },
-      {
-        key: "2",
-        label: <Link href="/ciel1">Maths</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "3",
-        label: <Link href="/python">Python</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "6",
-        icon: <UserOutlined />,
-        label: <Modal />,
-        className: "nav-item nav-item--last",
-      },
-    ];
-  } else {
-    items = [
-      {
-        key: "1",
-        label: <Link href="/">Accueil</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "2",
-        label: <Link href="/ciel1">Maths</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "3",
-        label: <Link href="/python">Python</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "4",
-        label: <Link href="/admin/ciel1">A_Maths</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "5",
-        label: <Link href="/admin/python">A_Python</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "6",
-        icon: <UserOutlined />,
-        label: <Modal />,
-        className: "nav-item nav-item--last",
-      },
-    ];
-  }
+      }))
+    : [];
+
+  const items = [
+    {
+      key: "home",
+      label: <Link href="/">Accueil</Link>,
+      className: "nav-item",
+    },
+    ...publicItems,
+    ...adminItems,
+    {
+      key: "account",
+      icon: <UserOutlined />,
+      label: <Modal />,
+      className: "nav-item nav-item--last",
+    },
+  ];
 
   const navColors = {
     bg: props.bg,

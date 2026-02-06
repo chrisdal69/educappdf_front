@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Nav from "../components/Nav";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { fetchCardsMaths } from "../reducers/cardsMathsSlice";
@@ -99,30 +99,40 @@ function useMotionDelayState(delayMs, setState) {
   }, [delayMs, setState]);
 }
 
-function mulberry32(seed) {
-  let t = seed;
-  return function () {
-    t += 0x6d2b79f5;
-    let r = Math.imul(t ^ (t >>> 15), t | 1);
-    r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
+const isValidPositions = (positions) =>
+  Array.isArray(positions) &&
+  positions.length === LETTERS.length &&
+  positions.every(
+    (pos) =>
+      pos &&
+      Number.isFinite(Number(pos.x)) &&
+      Number.isFinite(Number(pos.y))
+  );
 
-function createPositions(count, maxX, maxY) {
-  const rng = mulberry32(413219);
-  return Array.from({ length: count }, () => {
-    const x = (rng() * 2 - 1) * maxX;
-    const y = (rng() * 2 - 1) * maxY;
-    return { x: Math.round(x), y: Math.round(y) };
-  });
-}
+const toCenterOffset = (pos) => {
+  const rawX = Number(pos.x);
+  const rawY = Number(pos.y);
+  const looksLikeViewportPercent =
+    rawX >= 0 && rawX <= 100 && rawY >= 0 && rawY <= 100;
+
+  if (looksLikeViewportPercent) {
+    // Anim1 stores absolute vw/vh positions; Anim2 needs offsets from center.
+    return { x: rawX - 50, y: rawY - 50 };
+  }
+
+  return { x: rawX, y: rawY };
+};
+
+const createFallbackPositions = () =>
+  LETTERS.map((_, index) => ({
+    x: -26 + index * 5.2,
+    y: 0,
+  }));
 
 function createOrder(count) {
-  const rng = mulberry32(98231);
   const indices = Array.from({ length: count }, (_, i) => i);
   for (let i = indices.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rng() * (i + 1));
+    const j = (i * 7 + 3) % (i + 1);
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
   const order = Array(count);
@@ -132,10 +142,9 @@ function createOrder(count) {
   return order;
 }
 
-const RANDOM_POSITIONS = createPositions(LETTERS.length, 48, 48);
 const RANDOM_ORDER = createOrder(LETTERS.length);
 
-function Anim2() {
+function Anim2({ initialPositions }) {
   const [bgSrc, setBgSrc] = useState(BG_SOURCES.mobile);
   const [showNav, setShowNav] = useState(false);
   const [decalage, setDecalage] = useState(0);
@@ -144,12 +153,25 @@ function Anim2() {
   const swapDelay = BG_SWAP_DELAY_MS;
   const dispatch = useDispatch();
   const cardsStatus = useSelector((state) => state.cardsMaths.status);
+  const loadedClassId = useSelector((state) => state.cardsMaths.data?.__classId);
+  const activeClassId = useSelector((state) => state.auth?.user?.classId);
+  const letterPositions = useMemo(() => {
+    if (isValidPositions(initialPositions)) {
+      return initialPositions.map((pos) => toCenterOffset(pos));
+    }
+    return createFallbackPositions();
+  }, [initialPositions]);
 
   useEffect(() => {
-    if (cardsStatus === "idle") {
+    if (!activeClassId) {
+      return;
+    }
+
+    const isStaleClass = String(loadedClassId || "") !== String(activeClassId);
+    if (cardsStatus === "idle" || (cardsStatus === "succeeded" && isStaleClass)) {
       dispatch(fetchCardsMaths());
     }
-  }, [cardsStatus, dispatch]);
+  }, [activeClassId, cardsStatus, dispatch, loadedClassId]);
 
   useEffect(() => {
     const updateLayout = () => {
@@ -199,7 +221,7 @@ function Anim2() {
       <div className="stage">
         <div className="word" aria-label={WORD}>
           {LETTERS.map((letter, index) => {
-            const pos = RANDOM_POSITIONS[index];
+            const pos = letterPositions[index];
             return (
               <span
                 key={`${letter}-${index}`}

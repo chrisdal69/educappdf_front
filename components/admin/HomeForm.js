@@ -52,7 +52,13 @@ const App = ({ nomRepertoire }) => {
       const payload = await response.json();
 
       if (response.ok) {
-        dispatch(setCardsMaths({ ...payload, __source: "admin" }));
+        dispatch(
+          setCardsMaths({
+            ...payload,
+            __source: "admin",
+            __classId: user?.classId || null,
+          })
+        );
       } else {
         setErrorMessage(
           payload?.error || "Erreur lors du chargement des cartes."
@@ -66,7 +72,7 @@ const App = ({ nomRepertoire }) => {
     } finally {
       setLoading(false);
     }
-  }, [dispatch, urlFetch]);
+  }, [dispatch, urlFetch, user?.classId]);
 
   useEffect(() => {
     setResetSignals((prev) => {
@@ -85,12 +91,15 @@ const App = ({ nomRepertoire }) => {
     if (!isAdmin) {
       return;
     }
-    if (data?.__source === "admin") {
+    if (
+      data?.__source === "admin" &&
+      String(data?.__classId || "") === String(user?.classId || "")
+    ) {
       return; // payload admin deja present
     }
 
     fetchCards();
-  }, [isAdmin, data?.__source, fetchCards]);
+  }, [isAdmin, data?.__classId, data?.__source, fetchCards, user?.classId]);
 
   const handleExternalTabChange = (index) => {
     setResetSignals((prev) => {

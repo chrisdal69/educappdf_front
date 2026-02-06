@@ -44,20 +44,23 @@ export default function Login(props) {
 
   const busy = isSubmitting;
 
-  const getTargetPath = (role) => {
-    const fromPath = router.asPath;
+  const getTargetPath = (role, directory) => {
+    const fromPath = (router.asPath || "/").split("?")[0];
+    const sanitizedDirectory =
+      typeof directory === "string" ? directory.trim() : "";
 
-    if (role !== "admin") {
-      if (fromPath === "/") return "/";
-      if (fromPath === "/ciel1") return "/ciel1";
-      if (fromPath === "/python") return "/python";
+    const userPath = sanitizedDirectory ? `/${sanitizedDirectory}` : "/";
+    const adminPath = sanitizedDirectory ? `/admin/${sanitizedDirectory}` : "/admin";
+
+    if (fromPath === "/") {
       return "/";
     }
 
-    if (fromPath === "/") return "/";
-    if (fromPath === "/ciel1") return "/admin/ciel1";
-    if (fromPath === "/python") return "/admin/python";
-    return "/admin";
+    if (fromPath === userPath || fromPath === adminPath) {
+      return role === "admin" ? adminPath : userPath;
+    }
+
+    return role === "admin" ? adminPath : userPath;
   };
 
   const finalizeLoginWithClass = async (classId) => {
@@ -75,6 +78,7 @@ export default function Login(props) {
 
       if (!res.ok) {
         setServerMessage(response.message || "Erreur de connexion.");
+        props.onFinalActionError?.();
         if (res.status === 401 || res.status === 403) {
           setmultipleClasses(false);
           setAvailableClasses([]);
@@ -95,18 +99,22 @@ export default function Login(props) {
           tabs: response.tabs,
         })
       );
-      console.log('role,name,directory,tabs : ',response.role, response.name,response.directory,response.tabs)
+
+      props.onAuthenticated?.(response);
       reset({ email: "", password: "" });
       setServerMessage("");
       setmultipleClasses(false);
       setAvailableClasses([]);
       setSelectedClassId("");
 
-      props.close();
-      router.push(getTargetPath(response.role));
+      if (!props.deferNavigation) {
+        props.close?.();
+        router.push(getTargetPath(response.role, response.directory));
+      }
       return true;
     } catch (err) {
       setServerMessage("Erreur serveur.");
+      props.onFinalActionError?.();
       return false;
     } finally {
       setIsValidatingClass(false);
@@ -181,6 +189,7 @@ export default function Login(props) {
       }
 
       if (allClasses.length === 1) {
+        props.onFinalActionStart?.();
         await finalizeLoginWithClass(allClasses[0].id);
         return;
       }
@@ -200,6 +209,7 @@ export default function Login(props) {
       return;
     }
 
+    props.onFinalActionStart?.();
     await finalizeLoginWithClass(selectedClassId);
   };
 

@@ -83,9 +83,12 @@ function createPositions(count, bounds, exclusionZone) {
   });
 }
 
-function Anim1() {
+function Anim1({ onLoginTransitionComplete }) {
   const loginPanelRef = useRef(null);
   const [positions, setPositions] = useState([]);
+  const [isClosingLogin, setIsClosingLogin] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [closeStartedAt, setCloseStartedAt] = useState(null);
 
   useEffect(() => {
     const updatePositions = () => {
@@ -115,6 +118,28 @@ function Anim1() {
       window.removeEventListener("resize", updatePositions);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isClosingLogin || !isAuthenticated || !closeStartedAt) {
+      return;
+    }
+
+    const elapsed = Date.now() - closeStartedAt;
+    const remaining = Math.max(0, 2000 - elapsed);
+    const timerId = window.setTimeout(() => {
+      onLoginTransitionComplete?.(positions);
+    }, remaining);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    closeStartedAt,
+    isClosingLogin,
+    isAuthenticated,
+    onLoginTransitionComplete,
+    positions,
+  ]);
 
   return (
     <div
@@ -152,8 +177,25 @@ function Anim1() {
       <div className="veil" aria-hidden="true" />
 
       <div className="loginWrap">
-        <div ref={loginPanelRef} className="loginPanel">
-          <Login isOpen close={() => {}} />
+        <div
+          ref={loginPanelRef}
+          className={`loginPanel${isClosingLogin ? " loginPanel--closing" : ""}`}
+        >
+          <Login
+            isOpen
+            close={() => {}}
+            deferNavigation
+            onFinalActionStart={() => {
+              setCloseStartedAt(Date.now());
+              setIsClosingLogin(true);
+            }}
+            onFinalActionError={() => {
+              setCloseStartedAt(null);
+              setIsClosingLogin(false);
+              setIsAuthenticated(false);
+            }}
+            onAuthenticated={() => setIsAuthenticated(true)}
+          />
         </div>
       </div>
 
@@ -211,12 +253,19 @@ function Anim1() {
 
         .loginPanel {
           width: min(92vw, 28rem);
+          max-height: 88vh;
           transform: scale(0);
           transform-origin: center center;
           opacity: 0;
           animation: login-in var(--login-duration) cubic-bezier(0.2, 0.85, 0.2, 1)
             forwards;
           will-change: transform, opacity;
+        }
+
+        .loginPanel--closing {
+          pointer-events: none;
+          overflow: hidden;
+          animation: login-out 2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
 
         @keyframes letter-in {
@@ -238,6 +287,21 @@ function Anim1() {
           100% {
             transform: scale(1);
             opacity: 1;
+          }
+        }
+
+        @keyframes login-out {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+            width: min(92vw, 28rem);
+            max-height: 88vh;
+          }
+          100% {
+            transform: scale(0);
+            opacity: 0;
+            width: 0;
+            max-height: 0;
           }
         }
 

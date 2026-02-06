@@ -17,6 +17,8 @@ const App = ({ repertoire }) => {
 
   const dispatch = useDispatch();
   const { data, status, error } = useSelector((state) => state.cardsMaths);
+  const activeClassId = useSelector((state) => state.auth?.user?.classId);
+  const loadedClassId = useSelector((state) => state.cardsMaths.data?.__classId);
   const cardsFiltre = Array.isArray(data?.result) ? data.result : [];
   const cards = cardsFiltre.filter((obj) => obj.repertoire === repertoire);
 
@@ -41,12 +43,15 @@ const App = ({ repertoire }) => {
   }, [cards]);
 
   useEffect(() => {
-    if (status !== "idle") {
+    if (!activeClassId) {
       return;
     }
 
-    dispatch(fetchCardsMaths());
-  }, [status, dispatch]);
+    const isStaleClass = String(loadedClassId || "") !== String(activeClassId);
+    if (status === "idle" || (status === "succeeded" && isStaleClass)) {
+      dispatch(fetchCardsMaths());
+    }
+  }, [activeClassId, dispatch, loadedClassId, status]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

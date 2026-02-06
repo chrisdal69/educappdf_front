@@ -11,12 +11,19 @@ const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
 
 export const fetchCardsMaths = createAsyncThunk(
   "cardsMaths/fetchCardsMaths",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
-      // pour tests loading
-      //await new Promise((resolve) => setTimeout(resolve, 10000));
+      const classId = getState()?.auth?.user?.classId;
+      if (!classId) {
+        return rejectWithValue("Aucune classe selectionnee.");
+      }
 
-      const response = await fetch(`${urlFetch}/cards`);
+      const response = await fetch(
+        `${urlFetch}/cards?classId=${encodeURIComponent(classId)}`,
+        {
+          credentials: "include",
+        }
+      );
       const payload = await response.json();
 
       if (!response.ok) {
@@ -25,7 +32,7 @@ export const fetchCardsMaths = createAsyncThunk(
         );
       }
 
-      return payload;
+      return { ...payload, __source: "public", __classId: classId };
     } catch (err) {
       return rejectWithValue("Erreur serveur.");
     }

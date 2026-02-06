@@ -108,7 +108,7 @@ export default function Nav(props) {
     ...adminItems,
     {
       key: "account",
-      icon: <UserOutlined />,
+      icon: <UserOutlined style={{ fontSize: 24 }} />,
       label: <Modal />,
       className: "nav-item nav-item--last",
     },
@@ -126,7 +126,7 @@ export default function Nav(props) {
     }
 
     let rafId;
-    const MIN_MOBILE_PX = 770;
+    const MIN_MOBILE_PX = 570;
     const TOGGLE_RESERVE_PX = 56;
     const SAFETY_PX = 12;
 
@@ -540,7 +540,7 @@ export default function Nav(props) {
             transition: none;
           }
         }
-        @media (max-width: 770px) {
+        @media (max-width: 570px) {
           .nav-menu--desktop {
             display: none;
           }

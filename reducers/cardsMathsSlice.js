@@ -11,8 +11,15 @@ const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
 
 export const fetchCardsMaths = createAsyncThunk(
   "cardsMaths/fetchCardsMaths",
-  async (_, { rejectWithValue, getState }) => {
+  async (arg, { rejectWithValue, getState }) => {
     try {
+      const debugDelayMs = Number(
+        arg?.debugDelayMs ?? process.env.NEXT_PUBLIC_DEBUG_CARDS_DELAY_MS ?? 0
+      );
+      if (NODE_ENV !== "production" && Number.isFinite(debugDelayMs) && debugDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, debugDelayMs));
+      }
+
       const classId = getState()?.auth?.user?.classId;
       if (!classId) {
         return rejectWithValue("Aucune classe selectionnee.");

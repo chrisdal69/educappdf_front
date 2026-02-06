@@ -13,6 +13,7 @@ const POSITION_BOUNDS = {
 const ANIMATION = {
   lettersDuration: 1.1,
   loginDuration: 2,
+  closeDuration: 2,
   veilDuration: 0.15,
 };
 const DEFAULT_EXCLUSION_ZONE = {
@@ -85,10 +86,10 @@ function createPositions(count, bounds, exclusionZone) {
 
 function Anim1({ onLoginTransitionComplete }) {
   const loginPanelRef = useRef(null);
+  const didTransitionRef = useRef(false);
   const [positions, setPositions] = useState([]);
   const [isClosingLogin, setIsClosingLogin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [closeStartedAt, setCloseStartedAt] = useState(null);
 
   useEffect(() => {
     const updatePositions = () => {
@@ -120,26 +121,36 @@ function Anim1({ onLoginTransitionComplete }) {
   }, []);
 
   useEffect(() => {
-    if (!isClosingLogin || !isAuthenticated || !closeStartedAt) {
+    if (!isAuthenticated || isClosingLogin) {
       return;
     }
 
-    const elapsed = Date.now() - closeStartedAt;
-    const remaining = Math.max(0, 2000 - elapsed);
-    const timerId = window.setTimeout(() => {
-      onLoginTransitionComplete?.(positions);
-    }, remaining);
+    if (typeof window !== "undefined") {
+      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+      if (mediaQuery.matches) {
+        didTransitionRef.current = true;
+        onLoginTransitionComplete?.(positions);
+        return;
+      }
+    }
 
-    return () => {
-      window.clearTimeout(timerId);
-    };
-  }, [
-    closeStartedAt,
-    isClosingLogin,
-    isAuthenticated,
-    onLoginTransitionComplete,
-    positions,
-  ]);
+    setIsClosingLogin(true);
+  }, [isAuthenticated, isClosingLogin, onLoginTransitionComplete, positions]);
+
+  const handleLoginPanelAnimationEnd = (event) => {
+    if (!isClosingLogin || !isAuthenticated || didTransitionRef.current) {
+      return;
+    }
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+    if (event.animationName !== "login-out") {
+      return;
+    }
+
+    didTransitionRef.current = true;
+    onLoginTransitionComplete?.(positions);
+  };
 
   return (
     <div
@@ -147,6 +158,7 @@ function Anim1({ onLoginTransitionComplete }) {
       style={{
         "--letters-duration": `${ANIMATION.lettersDuration}s`,
         "--login-duration": `${ANIMATION.loginDuration}s`,
+        "--login-close-duration": `${ANIMATION.closeDuration}s`,
         "--veil-duration": `${ANIMATION.veilDuration}s`,
       }}
     >
@@ -180,19 +192,16 @@ function Anim1({ onLoginTransitionComplete }) {
         <div
           ref={loginPanelRef}
           className={`loginPanel${isClosingLogin ? " loginPanel--closing" : ""}`}
+          onAnimationEnd={handleLoginPanelAnimationEnd}
         >
           <Login
             isOpen
             close={() => {}}
             deferNavigation
-            onFinalActionStart={() => {
-              setCloseStartedAt(Date.now());
-              setIsClosingLogin(true);
-            }}
             onFinalActionError={() => {
-              setCloseStartedAt(null);
               setIsClosingLogin(false);
               setIsAuthenticated(false);
+              didTransitionRef.current = false;
             }}
             onAuthenticated={() => setIsAuthenticated(true)}
           />
@@ -265,7 +274,8 @@ function Anim1({ onLoginTransitionComplete }) {
         .loginPanel--closing {
           pointer-events: none;
           overflow: hidden;
-          animation: login-out 2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          animation: login-out var(--login-close-duration)
+            cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
 
         @keyframes letter-in {
@@ -294,14 +304,10 @@ function Anim1({ onLoginTransitionComplete }) {
           0% {
             transform: scale(1);
             opacity: 1;
-            width: min(92vw, 28rem);
-            max-height: 88vh;
           }
           100% {
             transform: scale(0);
             opacity: 0;
-            width: 0;
-            max-height: 0;
           }
         }
 
@@ -325,6 +331,12 @@ function Anim1({ onLoginTransitionComplete }) {
             animation: none;
             transform: scale(1);
             opacity: 1;
+          }
+
+          .loginPanel--closing {
+            animation: none;
+            transform: scale(0);
+            opacity: 0;
           }
 
           .veil {

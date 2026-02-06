@@ -264,7 +264,7 @@ function Anim2({ initialPositions }) {
           background-color: var(--bg-start);
           color: #1a1a1a;
           overflow: hidden;
-          --bg-start: #f6f4ef;
+          --bg-start:  #b8b8b6;
           --bg-phasec: #d0d9d8;
           --text-dark: #1a1a1a;
           --text-light: #cfd6d6;
@@ -356,7 +356,7 @@ function Anim2({ initialPositions }) {
           position: absolute;
           left: 50%;
           top: 50%;
-          font-weight: 700;
+          font-weight: 300;
           color: var(--text-dark);
           transform: translate(var(--rx), var(--ry));
           animation-name: assemble, wash, raise;

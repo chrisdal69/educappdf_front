@@ -384,6 +384,10 @@ export default function FilesBlock({
   const [reorderKey, setReorderKey] = useState("");
   const [visibilityLoadingKey, setVisibilityLoadingKey] = useState("");
   const [moveTooltipKey, setMoveTooltipKey] = useState("");
+  const [replaceKey, setReplaceKey] = useState("");
+  const [replaceSelectedFile, setReplaceSelectedFile] = useState(null);
+  const [replaceFileList, setReplaceFileList] = useState([]);
+  const [replaceLoadingKey, setReplaceLoadingKey] = useState("");
   const cardId = _id || id;
   const authFetch = async (url, options) => {
     const response = await fetch(url, options);
@@ -438,6 +442,11 @@ export default function FilesBlock({
     setInsertPosition("end");
   };
 
+  const resetReplaceForm = () => {
+    setReplaceSelectedFile(null);
+    setReplaceFileList([]);
+  };
+
   const handleBeforeUpload = (file) => {
     const ext = `.${(file.name || "").split(".").pop()?.toLowerCase() || ""}`;
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
@@ -462,6 +471,32 @@ export default function FilesBlock({
     const last = newList[newList.length - 1]?.originFileObj;
     setSelectedFile(last || null);
     setFileList(last ? [newList[newList.length - 1]] : []);
+  };
+
+  const handleReplaceBeforeUpload = (file) => {
+    const ext = `.${(file.name || "").split(".").pop()?.toLowerCase() || ""}`;
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      message.error("Extension non autorisee pour ce fichier.");
+      return Upload.LIST_IGNORE;
+    }
+    if (file.size && file.size > 100 * 1024 * 1024) {
+      message.error("Fichier trop volumineux (100 Mo max).");
+      return Upload.LIST_IGNORE;
+    }
+    setReplaceSelectedFile(file);
+    setReplaceFileList([file]);
+    return false;
+  };
+
+  const handleReplaceUploadChange = ({ fileList: newList }) => {
+    if (!newList || newList.length === 0) {
+      setReplaceSelectedFile(null);
+      setReplaceFileList([]);
+      return;
+    }
+    const last = newList[newList.length - 1]?.originFileObj;
+    setReplaceSelectedFile(last || null);
+    setReplaceFileList(last ? [newList[newList.length - 1]] : []);
   };
 
   const buildInsertionOptions = () => {
@@ -762,6 +797,185 @@ export default function FilesBlock({
     }
   };
 
+  const closeReplace = () => {
+    setReplaceKey("");
+    resetReplaceForm();
+  };
+
+  const toggleReplace = (key) => {
+    if (replaceKey === key) {
+      closeReplace();
+      return;
+    }
+    setReplaceKey(key);
+    resetReplaceForm();
+  };
+
+  const handleReplaceFile = async (file, key) => {
+    if (!cardId) {
+      message.error("Identifiant de carte manquant.");
+      return;
+    }
+    const oldHref = file?.href;
+    if (!oldHref) {
+      message.error("Fichier invalide.");
+      return;
+    }
+    if (!replaceSelectedFile) {
+      message.error("Veuillez selectionner un fichier a uploader.");
+      return;
+    }
+
+    setReplaceLoadingKey(key);
+    try {
+      const contentType =
+        replaceSelectedFile.type || "application/octet-stream";
+
+      const uploadDirect = async () => {
+        const signResponse = await authFetch(
+          `${urlFetch}/cards/${cardId}/files/replace/sign`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              href: oldHref,
+              name: replaceSelectedFile.name,
+              type: contentType,
+              size: replaceSelectedFile.size,
+            }),
+          }
+        );
+        let signPayload = null;
+        try {
+          signPayload = await signResponse.json();
+        } catch (_) {}
+        if (!signResponse.ok) {
+          const err = new Error(
+            signPayload?.error || "Impossible de preparer le remplacement."
+          );
+          err.stage = "sign";
+          throw err;
+        }
+
+        const signedResult = signPayload?.result || signPayload;
+        const signedUrl = signedResult?.url;
+        const signedFileName = signedResult?.fileName;
+        const signedContentType = signedResult?.contentType || contentType;
+        if (!signedUrl || !signedFileName) {
+          const err = new Error("URL d'upload manquante.");
+          err.stage = "sign";
+          throw err;
+        }
+
+        const uploadResponse = await fetch(signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": signedContentType },
+          body: replaceSelectedFile,
+        });
+        if (!uploadResponse.ok) {
+          const err = new Error("Upload direct echoue.");
+          err.stage = "upload";
+          throw err;
+        }
+
+        const confirmResponse = await authFetch(
+          `${urlFetch}/cards/${cardId}/files/replace/confirm`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ href: oldHref, fileName: signedFileName }),
+          }
+        );
+        let confirmPayload = null;
+        try {
+          confirmPayload = await confirmResponse.json();
+        } catch (_) {}
+        if (!confirmResponse.ok) {
+          const err = new Error(
+            confirmPayload?.error || "Impossible de finaliser le remplacement."
+          );
+          err.stage = "confirm";
+          throw err;
+        }
+
+        return confirmPayload;
+      };
+
+      const uploadViaBackend = async () => {
+        const formData = new FormData();
+        formData.append("file", replaceSelectedFile);
+        formData.append("href", oldHref);
+        const response = await authFetch(
+          `${urlFetch}/cards/${cardId}/files/replace`,
+          {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          }
+        );
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (_) {}
+        if (!response.ok) {
+          throw new Error(payload?.error || "Impossible de remplacer le fichier.");
+        }
+        return payload;
+      };
+
+      let payload = null;
+      let usedFallback = false;
+      try {
+        payload = await uploadDirect();
+      } catch (directError) {
+        const stage = directError?.stage;
+        const size = Number(replaceSelectedFile?.size);
+        const canFallbackBySize =
+          urlFetch ||
+          (Number.isFinite(size) && size > 0 && size <= FALLBACK_MAX_BYTES);
+        const canFallback = stage !== "confirm" && canFallbackBySize;
+        if (!canFallback) {
+          throw directError;
+        }
+        console.warn(
+          "Remplacement direct echoue, tentative fallback.",
+          directError
+        );
+        payload = await uploadViaBackend();
+        usedFallback = true;
+      }
+
+      const updatedCard = payload?.result;
+      const nextFiles = Array.isArray(updatedCard?.fichiers)
+        ? updatedCard.fichiers
+        : (localFiles || []).map((f) =>
+            f?.href === oldHref
+              ? { ...f, href: payload?.fileName || f?.href }
+              : f
+          );
+
+      setLocalFiles(nextFiles);
+      syncCardsStore(updatedCard, nextFiles);
+      if (usedFallback) {
+        message.warning("Upload direct indisponible, fallback utilise.");
+      }
+      message.success("Fichier remplace.");
+      closeReplace();
+    } catch (error) {
+      console.error("Erreur lors du remplacement du fichier :", error);
+      const handled = handleAuthError(error, { dispatch, router });
+      if (!handled) {
+        message.error(
+          error.message || "Erreur lors du remplacement du fichier."
+        );
+      }
+    } finally {
+      setReplaceLoadingKey("");
+    }
+  };
+
   const handleAddFile = async () => {
     if (!cardId) {
       message.error("Identifiant de carte manquant.");
@@ -954,6 +1168,9 @@ export default function FilesBlock({
     const isHoverEditingLoading = editingHoverLoadingKey === deleteKey;
     const isReordering = reorderKey === deleteKey;
     const isVisibilityLoading = visibilityLoadingKey === deleteKey;
+    const isReplaceOpen = replaceKey === deleteKey;
+    const isReplacing = replaceLoadingKey === deleteKey;
+    const isAnyReplacing = Boolean(replaceLoadingKey);
     const canMoveUp = idx > 0;
     const canMoveDown = idx < (localFiles?.length || 0) - 1;
     const isVisible = elt?.visible !== false;
@@ -1000,239 +1217,359 @@ export default function FilesBlock({
     return (
       <li
         key={`${elt?.href || idx}`}
-        className={`flex items-center gap-2 py-3 px-2 ${
+        className={`py-3 px-2 ${
           idx % 2 === 1 ? "bg-gray-300" : ""
         }`}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-w-0 flex-1 items-center gap-2 text-blue-700 hover:text-blue-900 underline decoration-blue-300 hover:decoration-blue-500"
-          >
-            <span className="shrink-0 text-lg leading-none">{icon}</span>
-            {nameWithHover}
-            {ext && (
-              <span className="text-xs text-gray-500">
-                ({ext.toUpperCase()})
-              </span>
-            )}
-          </a>
-        </div>
-        {elt?.href && (
-          <Tooltip
-            title={
-              isVisible ? "Masquer ce fichier" : "Rendre ce fichier visible"
-            }
-            mouseEnterDelay={0.3}
-          >
-            <Button
-              size="small"
-              icon={isVisible ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-              loading={isVisibilityLoading}
-              disabled={
-                isDeleting ||
-                isEditingLoading ||
-                isHoverEditingLoading ||
-                isReordering
-              }
-              onClick={() => handleToggleVisibility(elt, deleteKey)}
-            />
-          </Tooltip>
-        )}
-        {elt?.href && (
-          <Popover
-            trigger="click"
-            open={isEditingOpen}
-            onOpenChange={(visible) => {
-              if (visible) {
-                setEditingKey(deleteKey);
-                setEditingValue(elt?.txt || "");
-              } else if (isEditingOpen) {
-                setEditingKey("");
-                setEditingValue("");
-              }
-            }}
-            content={
-              <div className="flex w-64 flex-col gap-2">
-                <Input
-                  value={editingValue}
-                  onChange={(e) => setEditingValue(e.target.value)}
-                  placeholder="Modifier le descriptif"
-                  maxLength={200}
-                />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setEditingKey("");
-                      setEditingValue("");
-                    }}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    size="small"
-                    type="primary"
-                    icon={<CheckOutlined />}
-                    loading={isEditingLoading}
-                    onClick={() => handleEditFile(elt, deleteKey)}
-                  >
-                    Valider
-                  </Button>
-                </div>
-              </div>
-            }
-          >
-            <Tooltip title="Modifier le descriptif" mouseEnterDelay={0.3}>
-              <Button size="small" icon={<EditOutlined />} />
-            </Tooltip>
-          </Popover>
-        )}
-        {elt?.href && (
-          <Popover
-            trigger="click"
-            open={isHoverEditingOpen}
-            onOpenChange={(visible) => {
-              if (visible) {
-                setEditingHoverKey(deleteKey);
-                setEditingHoverValue(elt?.hover || "");
-              } else if (isHoverEditingOpen) {
-                setEditingHoverKey("");
-                setEditingHoverValue("");
-              }
-            }}
-            content={
-              <div className="flex w-64 flex-col gap-2">
-                <Input.TextArea
-                  value={editingHoverValue}
-                  onChange={(e) => setEditingHoverValue(e.target.value)}
-                  placeholder="Modifier le texte de survol"
-                  autoSize={{ minRows: 3, maxRows: 6 }}
-                  maxLength={500}
-                />
-                {editingHoverValue &&
-                  (() => {
-                    const { nodes, hasUnmatched } =
-                      renderInlineKatex(editingHoverValue);
-                    return (
-                      <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                        {nodes}
-                        {hasUnmatched && (
-                          <span
-                            style={{
-                              color: "#ff4d4f",
-                              marginLeft: 6,
-                              fontSize: 12,
-                            }}
-                          >
-                            ($ non ferme)
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                <div className="flex justify-end gap-2">
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setEditingHoverKey("");
-                      setEditingHoverValue("");
-                    }}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    size="small"
-                    type="primary"
-                    icon={<CheckOutlined />}
-                    loading={isHoverEditingLoading}
-                    onClick={() => handleEditHover(elt, deleteKey)}
-                  >
-                    Valider
-                  </Button>
-                </div>
-              </div>
-            }
-          >
-            <Tooltip title="Modifier le texte de survol" mouseEnterDelay={0.3}>
-              <Button size="small" icon={<HandIcon />} />
-            </Tooltip>
-          </Popover>
-        )}
-        {elt?.href && (
-          <Tooltip title="Supprimer ce fichier" mouseEnterDelay={0.3}>
-            <Popconfirm
-              title="Supprimer ce fichier ?"
-              okText="Supprimer"
-              cancelText="Annuler"
-              icon={<QuestionCircleOutlined style={{ color: "red" }} />}
-              okButtonProps={{ loading: isDeleting, danger: true }}
-              onConfirm={() => handleDeleteFile(elt, deleteKey)}
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-w-0 flex-1 items-center gap-2 text-blue-700 hover:text-blue-900 underline decoration-blue-300 hover:decoration-blue-500"
             >
-              <Button
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                loading={isDeleting}
-              />
-            </Popconfirm>
-          </Tooltip>
-        )}
-        {canMoveUp && (
-          <Tooltip
-            title="Monter ce fichier"
-            mouseEnterDelay={0.3}
-            open={moveTooltipKey === moveUpTooltipKey && !isReordering}
-            onOpenChange={(visible) => {
-              if (visible) {
-                setMoveTooltipKey(moveUpTooltipKey);
-              } else if (moveTooltipKey === moveUpTooltipKey) {
-                setMoveTooltipKey("");
-              }
-            }}
-          >
-            <span className="inline-flex">
-              <Button
-                size="small"
-                icon={<ArrowUpOutlined />}
-                disabled={isDeleting || isEditingLoading || isReordering}
-                loading={isReordering}
-                onClick={() => {
-                  setMoveTooltipKey("");
-                  handleMoveFile(idx, "up");
+              <span className="shrink-0 text-lg leading-none">{icon}</span>
+              {nameWithHover}
+              {ext && (
+                <span className="text-xs text-gray-500">
+                  ({ext.toUpperCase()})
+                </span>
+              )}
+            </a>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {elt?.href && (
+              <Tooltip
+                title={
+                  isVisible ? "Masquer ce fichier" : "Rendre ce fichier visible"
+                }
+                mouseEnterDelay={0.3}
+              >
+                <Button
+                  size="small"
+                  icon={isVisible ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                  loading={isVisibilityLoading}
+                  disabled={
+                    isAnyReplacing ||
+                    isDeleting ||
+                    isEditingLoading ||
+                    isHoverEditingLoading ||
+                    isReordering
+                  }
+                  onClick={() => handleToggleVisibility(elt, deleteKey)}
+                />
+              </Tooltip>
+            )}
+            {elt?.href && (
+              <Popover
+                trigger="click"
+                open={isEditingOpen}
+                onOpenChange={(visible) => {
+                  if (visible) {
+                    setEditingKey(deleteKey);
+                    setEditingValue(elt?.txt || "");
+                  } else if (isEditingOpen) {
+                    setEditingKey("");
+                    setEditingValue("");
+                  }
                 }}
-              />
-            </span>
-          </Tooltip>
-        )}
-        {canMoveDown && (
-          <Tooltip
-            title="Descendre ce fichier"
-            mouseEnterDelay={0.3}
-            open={moveTooltipKey === moveDownTooltipKey && !isReordering}
-            onOpenChange={(visible) => {
-              if (visible) {
-                setMoveTooltipKey(moveDownTooltipKey);
-              } else if (moveTooltipKey === moveDownTooltipKey) {
-                setMoveTooltipKey("");
-              }
-            }}
-          >
-            <span className="inline-flex">
-              <Button
-                size="small"
-                icon={<ArrowDownOutlined />}
-                disabled={isDeleting || isEditingLoading || isReordering}
-                loading={isReordering}
-                onClick={() => {
-                  setMoveTooltipKey("");
-                  handleMoveFile(idx, "down");
+                content={
+                  <div className="flex w-64 flex-col gap-2">
+                    <Input
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      placeholder="Modifier le descriptif"
+                      maxLength={200}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setEditingKey("");
+                          setEditingValue("");
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<CheckOutlined />}
+                        loading={isEditingLoading}
+                        onClick={() => handleEditFile(elt, deleteKey)}
+                      >
+                        Valider
+                      </Button>
+                    </div>
+                  </div>
+                }
+              >
+                <Tooltip title="Modifier le descriptif" mouseEnterDelay={0.3}>
+                  <Button
+                    size="small"
+                    icon={<EditOutlined />}
+                    disabled={isAnyReplacing || isDeleting || isReordering}
+                  />
+                </Tooltip>
+              </Popover>
+            )}
+            {elt?.href && (
+              <Popover
+                trigger="click"
+                open={isHoverEditingOpen}
+                onOpenChange={(visible) => {
+                  if (visible) {
+                    setEditingHoverKey(deleteKey);
+                    setEditingHoverValue(elt?.hover || "");
+                  } else if (isHoverEditingOpen) {
+                    setEditingHoverKey("");
+                    setEditingHoverValue("");
+                  }
                 }}
-              />
-            </span>
-          </Tooltip>
+                content={
+                  <div className="flex w-64 flex-col gap-2">
+                    <Input.TextArea
+                      value={editingHoverValue}
+                      onChange={(e) => setEditingHoverValue(e.target.value)}
+                      placeholder="Modifier le texte de survol"
+                      autoSize={{ minRows: 3, maxRows: 6 }}
+                      maxLength={500}
+                    />
+                    {editingHoverValue &&
+                      (() => {
+                        const { nodes, hasUnmatched } =
+                          renderInlineKatex(editingHoverValue);
+                        return (
+                          <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                            {nodes}
+                            {hasUnmatched && (
+                              <span
+                                style={{
+                                  color: "#ff4d4f",
+                                  marginLeft: 6,
+                                  fontSize: 12,
+                                }}
+                              >
+                                ($ non ferme)
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setEditingHoverKey("");
+                          setEditingHoverValue("");
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<CheckOutlined />}
+                        loading={isHoverEditingLoading}
+                        onClick={() => handleEditHover(elt, deleteKey)}
+                      >
+                        Valider
+                      </Button>
+                    </div>
+                  </div>
+                }
+              >
+                <Tooltip
+                  title="Modifier le texte de survol"
+                  mouseEnterDelay={0.3}
+                >
+                  <Button
+                    size="small"
+                    icon={<HandIcon />}
+                    disabled={isAnyReplacing || isDeleting || isReordering}
+                  />
+                </Tooltip>
+              </Popover>
+            )}
+
+            {elt?.href && (
+              <Tooltip title="Remplacer ce fichier" mouseEnterDelay={0.3}>
+                <Button
+                  size="small"
+                  icon={<UploadOutlined />}
+                  loading={isReplacing}
+                  disabled={
+                    (isAnyReplacing && !isReplacing) ||
+                    isDeleting ||
+                    isEditingLoading ||
+                    isHoverEditingLoading ||
+                    isReordering ||
+                    isVisibilityLoading
+                  }
+                  onClick={() => toggleReplace(deleteKey)}
+                />
+              </Tooltip>
+            )}
+
+            {elt?.href && (
+              <Tooltip title="Supprimer ce fichier" mouseEnterDelay={0.3}>
+                <Popconfirm
+                  title="Supprimer ce fichier ?"
+                  okText="Supprimer"
+                  cancelText="Annuler"
+                  icon={<QuestionCircleOutlined style={{ color: "red" }} />}
+                  okButtonProps={{ loading: isDeleting, danger: true }}
+                  onConfirm={() => handleDeleteFile(elt, deleteKey)}
+                >
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    loading={isDeleting}
+                    disabled={isAnyReplacing}
+                  />
+                </Popconfirm>
+              </Tooltip>
+            )}
+            {canMoveUp && (
+              <Tooltip
+                title="Monter ce fichier"
+                mouseEnterDelay={0.3}
+                open={moveTooltipKey === moveUpTooltipKey && !isReordering}
+                onOpenChange={(visible) => {
+                  if (visible) {
+                    setMoveTooltipKey(moveUpTooltipKey);
+                  } else if (moveTooltipKey === moveUpTooltipKey) {
+                    setMoveTooltipKey("");
+                  }
+                }}
+              >
+                <span className="inline-flex">
+                  <Button
+                    size="small"
+                    icon={<ArrowUpOutlined />}
+                    disabled={
+                      isAnyReplacing ||
+                      isDeleting ||
+                      isEditingLoading ||
+                      isReordering
+                    }
+                    loading={isReordering}
+                    onClick={() => {
+                      setMoveTooltipKey("");
+                      handleMoveFile(idx, "up");
+                    }}
+                  />
+                </span>
+              </Tooltip>
+            )}
+            {canMoveDown && (
+              <Tooltip
+                title="Descendre ce fichier"
+                mouseEnterDelay={0.3}
+                open={moveTooltipKey === moveDownTooltipKey && !isReordering}
+                onOpenChange={(visible) => {
+                  if (visible) {
+                    setMoveTooltipKey(moveDownTooltipKey);
+                  } else if (moveTooltipKey === moveDownTooltipKey) {
+                    setMoveTooltipKey("");
+                  }
+                }}
+              >
+                <span className="inline-flex">
+                  <Button
+                    size="small"
+                    icon={<ArrowDownOutlined />}
+                    disabled={
+                      isAnyReplacing ||
+                      isDeleting ||
+                      isEditingLoading ||
+                      isReordering
+                    }
+                    loading={isReordering}
+                    onClick={() => {
+                      setMoveTooltipKey("");
+                      handleMoveFile(idx, "down");
+                    }}
+                  />
+                </span>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+
+        {elt?.href && (
+          <div
+            className={`mt-2 overflow-hidden rounded border border-dashed border-gray-300 bg-white/60 shadow-sm transition-all duration-1000 ease-in-out ${
+              isReplaceOpen
+                ? "max-h-[420px] opacity-100 p-3"
+                : "max-h-0 opacity-0 p-0 pointer-events-none"
+            }`}
+            aria-hidden={!isReplaceOpen}
+          >
+            <div className="relative flex flex-col gap-3">
+              <Dragger
+                name="file"
+                multiple={false}
+                beforeUpload={handleReplaceBeforeUpload}
+                onChange={handleReplaceUploadChange}
+                fileList={replaceFileList}
+                accept={ALLOWED_EXTENSIONS.join(",")}
+                showUploadList={{ showRemoveIcon: true, showPreviewIcon: false }}
+                maxCount={1}
+                onRemove={() => {
+                  setReplaceSelectedFile(null);
+                  setReplaceFileList([]);
+                }}
+              >
+                <p className="ant-upload-drag-icon">
+                  <UploadOutlined />
+                </p>
+                <p className="ant-upload-text">
+                  Glissez-deposez un fichier ou cliquez
+                </p>
+                <p className="ant-upload-hint">
+                  Extensions autorisees : {ALLOWED_EXTENSIONS.join(", ")} - 100
+                  Mo max
+                </p>
+              </Dragger>
+              <div className="flex justify-end gap-2">
+                <Tooltip title="Annuler le remplacement" mouseEnterDelay={0.3}>
+                  <Button
+                    size="small"
+                    icon={<CloseOutlined />}
+                    onClick={() => closeReplace()}
+                    disabled={isReplacing}
+                  >
+                    Annuler
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Remplacer le fichier" mouseEnterDelay={0.3}>
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<UploadOutlined />}
+                    loading={isReplacing}
+                    disabled={!replaceSelectedFile || isReplacing}
+                    onClick={() => handleReplaceFile(elt, deleteKey)}
+                  >
+                    Remplacer
+                  </Button>
+                </Tooltip>
+              </div>
+              {isReplacing && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70">
+                  <ClimbingBoxLoader
+                    color="#2563eb"
+                    size={14}
+                    speedMultiplier={1}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </li>
     );

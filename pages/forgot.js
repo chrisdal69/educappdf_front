@@ -8,7 +8,6 @@ import zxcvbn from "zxcvbn";
 import { Eye, EyeOff, CheckCircle, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -146,7 +145,7 @@ export default function ForgotWizard() {
       if (res.ok) {
         setMessage("Mot de passe réinitialisé avec succès ✅");
         setStep(4);
-        setTimeout(() => router.push("/"), 2000);
+        setTimeout(() => router.back(), 2000);
       } else {
         setMessage(json.error || "Erreur lors de la réinitialisation.");
       }
@@ -221,7 +220,14 @@ export default function ForgotWizard() {
   );
 
   return (
-    <div className="max-w-md mx-auto mt-10 bg-white shadow-lg rounded-xl p-6 relative" aria-busy={isLoading || isSubmitting}>
+    <div
+      className="w-full min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: "#b8b8b6" }}
+    >
+      <div
+        className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative"
+        aria-busy={isLoading || isSubmitting}
+      >
       {/* Barre de progression */}
       <div className="flex justify-between mb-6">
         {steps.map((label, idx) => (
@@ -278,12 +284,13 @@ export default function ForgotWizard() {
               {isLoading ? "Envoi..." : "Envoyer le code"}
             </button>
             <div className=" text-right">
-              <Link
-                href="/"
+              <button
+                type="button"
+                onClick={() => router.back()}
                 className="text-sm text-blue-600 hover:underline"
               >
-                Retour page Accueil ?
-              </Link>
+                Retour  ?
+              </button>
             </div>
           </motion.form>
         )}
@@ -454,7 +461,7 @@ export default function ForgotWizard() {
               Mot de passe réinitialisé ✅
             </h2>
             <p className="text-sm text-gray-600 mt-2">
-              Redirection vers la page de Accueil ...
+              Redirection vers la page d'accueil ...
             </p>
           </motion.div>
         )}
@@ -465,6 +472,7 @@ export default function ForgotWizard() {
           <ClimbingBoxLoader color="#6C6C6C" size={11} speedMultiplier={1} />
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -6,7 +6,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import zxcvbn from "zxcvbn";
 import { Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const NODE_ENV = process.env.NODE_ENV;
@@ -156,7 +155,7 @@ export default function ChangePassword() {
         setMessage("Mot de passe changé avec succès ✅");
         reset();
         setPasswordStrength(0);
-        setTimeout(() => router.push("/"), 2000);
+        setTimeout(() => router.back(), 2000);
       } else {
         setMessage(json.error || "Erreur lors du changement de mot de passe.");
       }
@@ -168,7 +167,14 @@ export default function ChangePassword() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 bg-white shadow-lg rounded-xl p-6 relative" aria-busy={busy}>
+    <div
+      className="w-full min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: "#b8b8b6" }}
+    >
+      <div
+        className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative"
+        aria-busy={busy}
+      >
       <h2 className="text-2xl font-semibold text-center mb-6">
         Changer le mot de passe
       </h2>
@@ -253,14 +259,14 @@ export default function ChangePassword() {
         </button>
 
         <div className="text-center mt-4">
-          <Link
-            href="/"
-            className={`text-sm ${busy ? "text-gray-400 pointer-events-none" : "text-blue-600 hover:underline"}`}
-            aria-disabled={busy}
-            onClick={(e) => { if (busy) e.preventDefault(); }}
+          <button
+            type="button"
+            onClick={() => router.back()}
+            disabled={busy}
+            className={`text-sm ${busy ? "text-gray-400" : "text-blue-600 hover:underline"}`}
           >
-            Retour Page Accueil
-          </Link>
+            Retour à la page précédente
+          </button>
         </div>
       </form>
 
@@ -269,6 +275,7 @@ export default function ChangePassword() {
           <ClimbingBoxLoader color="#6C6C6C" size={11} speedMultiplier={1} />
         </div>
       )}
+      </div>
     </div>
   );
 }

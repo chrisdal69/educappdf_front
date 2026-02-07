@@ -37,10 +37,12 @@ const schema = yup.object().shape({
     .required("Mot de passe obligatoire"),
   confirmPassword: yup
     .string()
-    .oneOf([yup.ref("password"), null], "Les mots de passe ne correspondent pas")
+    .oneOf(
+      [yup.ref("password"), null],
+      "Les mots de passe ne correspondent pas",
+    )
     .required("Confirmation requise"),
 });
-
 
 export default function SignupWizard() {
   const router = useRouter();
@@ -209,255 +211,273 @@ export default function SignupWizard() {
     );
   };
   return (
-    <div className="max-w-md mx-auto mt-10 bg-white shadow-lg rounded-xl p-6">
-      {/* Barre de progression */}
-      <div className="flex justify-between mb-6">
-        {steps.map((label, idx) => (
-          <div key={idx} className="flex-1 text-center">
-            <div
-              className={`mx-auto w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold ${
-                step >= idx + 1
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-300 text-gray-600"
-              }`}
-            >
-              {idx + 1}
+    <div
+      className="w-full min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: "#b8b8b6" }}
+    >
+      <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative">
+        {/* Barre de progression */}
+        <div className="flex justify-between mb-6">
+          {steps.map((label, idx) => (
+            <div key={idx} className="flex-1 text-center">
+              <div
+                className={`mx-auto w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold ${
+                  step >= idx + 1
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-300 text-gray-600"
+                }`}
+              >
+                {idx + 1}
+              </div>
+              <p className="text-xs mt-1">{label}</p>
             </div>
-            <p className="text-xs mt-1">{label}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* Messages */}
-      {message && (
-        <p className="text-center text-sm text-red-600 mb-4">{message}</p>
-      )}
+        {/* Messages */}
+        {message && (
+          <p className="text-center text-sm text-red-600 mb-4">{message}</p>
+        )}
 
-      {/* Étapes avec animation */}
-      <AnimatePresence mode="wait">
-        {step === 1 && (
-          <motion.div
-            key="signup"
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 50 }}
-            transition={{ duration: 0.3 }}
-          >
-            <h2 className="text-xl font-semibold text-center mb-4">
-              Créer un compte
-            </h2>
-            <form onSubmit={handleSubmit(onSubmitSignup)} className="space-y-4">
-              {/* Champs leurres pour neutraliser l'autofill */}
+        {/* Étapes avec animation */}
+        <AnimatePresence mode="wait">
+          {step === 1 && (
+            <motion.div
+              key="signup"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-xl font-semibold text-center mb-4">
+                Créer un compte
+              </h2>
+              <form
+                onSubmit={handleSubmit(onSubmitSignup)}
+                className="space-y-4"
+              >
+                {/* Champs leurres pour neutraliser l'autofill */}
+                <input
+                  type="text"
+                  name="fakeuser"
+                  autoComplete="off"
+                  style={{ display: "none" }}
+                />
+                <input
+                  type="password"
+                  name="fakepass"
+                  autoComplete="new-password"
+                  style={{ display: "none" }}
+                />
+
+                {/* Nom */}
+                <div>
+                  <label
+                    htmlFor="nom"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Nom
+                  </label>
+                  <input
+                    id="nom"
+                    type="text"
+                    {...register("nom")}
+                    className="w-full border rounded px-3 py-2"
+                  />
+                  {errors.nom && (
+                    <p className="text-sm text-red-600">{errors.nom.message}</p>
+                  )}
+                </div>
+
+                {/* Prénom */}
+                <div>
+                  <label
+                    htmlFor="prenom"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Prénom
+                  </label>
+                  <input
+                    id="prenom"
+                    type="text"
+                    {...register("prenom")}
+                    className="w-full border rounded px-3 py-2"
+                  />
+                  {errors.prenom && (
+                    <p className="text-sm text-red-600">
+                      {errors.prenom.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    {...register("email")}
+                    className="w-full border rounded px-3 py-2"
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-red-600">
+                      {errors.email.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Mot de passe */}
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Mot de passe
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={passwordVisible ? "text" : "password"}
+                      {...register("password")}
+                      className="w-full border rounded px-3 py-2 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPasswordVisible(!passwordVisible)}
+                      className="absolute right-3 top-2 text-gray-500"
+                    >
+                      {passwordVisible ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-sm text-red-600">
+                      {errors.password.message}
+                    </p>
+                  )}
+                  {renderPasswordRules()}
+                  {password && getStrengthLabel(passwordStrength)}
+                </div>
+
+                {/* Confirmation mot de passe */}
+                <div>
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Confirmer le mot de passe
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="confirmPassword"
+                      type={confirmVisible ? "text" : "password"}
+                      {...register("confirmPassword")}
+                      className="w-full border rounded px-3 py-2 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setConfirmVisible(!confirmVisible)}
+                      className="absolute right-3 top-2 text-gray-500"
+                    >
+                      {confirmVisible ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="text-sm text-red-600">
+                      {errors.confirmPassword.message}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!isValid || isSubmitting || isLoading}
+                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                >
+                  {isLoading ? "Envoi..." : "S'inscrire"}
+                </button>
+                <div className="mt-1 text-center">
+                  <Link
+                    href="/"
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Retour page Accueil
+                  </Link>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {step === 2 && (
+            <motion.div
+              key="verify"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              transition={{ duration: 0.3 }}
+              className="text-center"
+            >
+              <h2 className="text-xl font-semibold mb-4">Vérification email</h2>
+              <p className="text-sm text-gray-600 mb-3">
+                Code envoyé à <strong>{email}</strong>
+              </p>
               <input
                 type="text"
-                name="fakeuser"
-                autoComplete="off"
-                style={{ display: "none" }}
+                maxLength={6}
+                placeholder="Code"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                className="border rounded px-4 py-2 text-center tracking-widest w-40"
               />
-              <input
-                type="password"
-                name="fakepass"
-                autoComplete="new-password"
-                style={{ display: "none" }}
-              />
-
-              {/* Nom */}
-              <div>
-                <label
-                  htmlFor="nom"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={handleVerifyCode}
+                  disabled={isLoading}
+                  className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300"
                 >
-                  Nom
-                </label>
-                <input
-                  id="nom"
-                  type="text"
-                  {...register("nom")}
-                  className="w-full border rounded px-3 py-2"
-                />
-                {errors.nom && (
-                  <p className="text-sm text-red-600">{errors.nom.message}</p>
-                )}
-              </div>
-
-              {/* Prénom */}
-              <div>
-                <label
-                  htmlFor="prenom"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  {isLoading ? "Vérification..." : "Valider"}
+                </button>
+                <button
+                  onClick={handleResendCode}
+                  disabled={isLoading}
+                  className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                 >
-                  Prénom
-                </label>
-                <input
-                  id="prenom"
-                  type="text"
-                  {...register("prenom")}
-                  className="w-full border rounded px-3 py-2"
-                />
-                {errors.prenom && (
-                  <p className="text-sm text-red-600">
-                    {errors.prenom.message}
-                  </p>
-                )}
+                  Renvoyer le code
+                </button>
               </div>
+            </motion.div>
+          )}
 
-              {/* Email */}
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  {...register("email")}
-                  className="w-full border rounded px-3 py-2"
-                />
-                {errors.email && (
-                  <p className="text-sm text-red-600">{errors.email.message}</p>
-                )}
-              </div>
-
-              {/* Mot de passe */}
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Mot de passe
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={passwordVisible ? "text" : "password"}
-                    {...register("password")}
-                    className="w-full border rounded px-3 py-2 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPasswordVisible(!passwordVisible)}
-                    className="absolute right-3 top-2 text-gray-500"
-                  >
-                    {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-red-600">
-                    {errors.password.message}
-                  </p>
-                )}
-                {renderPasswordRules()}
-                {password && getStrengthLabel(passwordStrength)}
-              </div>
-
-              {/* Confirmation mot de passe */}
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Confirmer le mot de passe
-                </label>
-                <div className="relative">
-                  <input
-                    id="confirmPassword"
-                    type={confirmVisible ? "text" : "password"}
-                    {...register("confirmPassword")}
-                    className="w-full border rounded px-3 py-2 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setConfirmVisible(!confirmVisible)}
-                    className="absolute right-3 top-2 text-gray-500"
-                  >
-                    {confirmVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {errors.confirmPassword && (
-                  <p className="text-sm text-red-600">
-                    {errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={!isValid || isSubmitting || isLoading}
-                className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
-              >
-                {isLoading ? "Envoi..." : "S'inscrire"}
-              </button>
-              <div className="mt-1 text-center">
-                <Link
-                  href="/"
-                  className="text-sm font-medium text-blue-600 hover:underline"
-                >
-                  Retour page Accueil
-                </Link>
-              </div>
-            </form>
-          </motion.div>
-        )}
-
-        {step === 2 && (
-          <motion.div
-            key="verify"
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 50 }}
-            transition={{ duration: 0.3 }}
-            className="text-center"
-          >
-            <h2 className="text-xl font-semibold mb-4">Vérification email</h2>
-            <p className="text-sm text-gray-600 mb-3">
-              Code envoyé à <strong>{email}</strong>
-            </p>
-            <input
-              type="text"
-              maxLength={6}
-              placeholder="Code"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              className="border rounded px-4 py-2 text-center tracking-widest w-40"
-            />
-            <div className="mt-4 space-y-2">
-              <button
-                onClick={handleVerifyCode}
-                disabled={isLoading}
-                className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300"
-              >
-                {isLoading ? "Vérification..." : "Valider"}
-              </button>
-              <button
-                onClick={handleResendCode}
-                disabled={isLoading}
-                className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-              >
-                Renvoyer le code
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        {step === 3 && (
-          <motion.div
-            key="success"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            className="text-center"
-          >
-            <CheckCircle className="mx-auto text-green-500" size={48} />
-            <h2 className="text-xl font-semibold mt-3">Compte activé ✅</h2>
-            <p className="text-sm text-gray-600 mt-2">
-              Redirection vers la page de Accueil...
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          {step === 3 && (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="text-center"
+            >
+              <CheckCircle className="mx-auto text-green-500" size={48} />
+              <h2 className="text-xl font-semibold mt-3">Compte activé ✅</h2>
+              <p className="text-sm text-gray-600 mt-2">
+                Redirection vers la page de Accueil...
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

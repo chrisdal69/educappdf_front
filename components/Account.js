@@ -15,6 +15,11 @@ export default function Account(props) {
   const { isAuthenticated, user } = useSelector((s) => s.auth);
   const isAdmin = isAuthenticated && user?.role === "admin";
 
+  const fromPath = (router.asPath || "/").split("?")[0];
+  const changePasswordHref =
+    fromPath === "/" ? "/changepassword?from=home" : "/changepassword";
+  const leaveClassHref = fromPath === "/" ? "/leaveclass?from=home" : "/leaveclass";
+
   const handleLogout = async () => {
     try {
       const res = await fetch(`${urlFetch}/auth/logout`, {
@@ -25,8 +30,9 @@ export default function Account(props) {
         const response = await res.json();
         setMessage(response.message);
         dispatch(clearAuth());
-        isAdmin && dispatch(setCardsMaths([]));
-        console.log("✅ Déconnexion réussie ", response, isAdmin);
+        if (isAdmin) {
+          dispatch(setCardsMaths([]));
+        }
         props.close();
         if (typeof window !== "undefined") {
           window.location.replace("/");
@@ -45,54 +51,49 @@ export default function Account(props) {
     <div className="max-w-md mx-auto mt-10 rounded-xl shadow-lg p-6 bg-white text-center">
       <h2 className="text-2xl font-semibold mb-6">Mon compte</h2>
       {user && (
-        <h2 className="text-2xl  mb-6">
+        <h2 className="text-2xl mb-6">
           {user.prenom} {user.nom}
         </h2>
       )}
-      {user && <h2 className="text-2xl  mb-6">{user.name}</h2>}
+      {user && <h2 className="text-2xl mb-6">{user.name}</h2>}
       {message && <p className="text-blue-600 mb-4">{message}</p>}
 
       <button
         onClick={handleLogout}
-        className="w-full py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 mb-4"
+        className="w-full py-2 rounded-lg bg-red-400 text-xl text-white font-semibold hover:bg-red-700 mb-4"
       >
         Logout
       </button>
+
       <div className="flex flex-col justify-center">
-        {" "}
-        {(() => {
-          const fromPath = (router.asPath || "/").split("?")[0];
-          const changePasswordHref =
-            fromPath === "/" ? "/changepassword?from=home" : "/changepassword";
-          return (
+        <Link
+          href={changePasswordHref}
+          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+          onClick={() => props.close()}
+        >
+          Changer le mot de passe
+        </Link>
+
+        {!isAdmin && (
+          <>
             <Link
-              href={changePasswordHref}
+              href={leaveClassHref}
               className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
               onClick={() => props.close()}
             >
-              Changer le mot de passe
+              Se désinscrire de la classe de {user?.name}
             </Link>
-          );
-        })()}
-        <Link
-          href={
-            (router.asPath || "/").split("?")[0] === "/"
-              ? "/leaveclass?from=home"
-              : "/leaveclass"
-          }
-          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-          onClick={() => props.close()}
-        >
-          Se désinscrire de la classe de {user.name}
-        </Link>
-         <Link
-          href="/deleteaccount"
-          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-          onClick={() => props.close()}
-        >
-          Supprimer mon compte de MathsApp
-        </Link>
+            <Link
+              href="/deleteaccount"
+              className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+              onClick={() => props.close()}
+            >
+              Supprimer mon compte de MathsApp
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );
 }
+

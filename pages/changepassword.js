@@ -6,7 +6,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import zxcvbn from "zxcvbn";
 import { Eye, EyeOff } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -33,6 +33,10 @@ const schema = yup.object().shape({
 
 export default function ChangePassword() {
   const router = useRouter();
+  const from = Array.isArray(router.query?.from)
+    ? router.query.from[0]
+    : router.query?.from;
+  const shouldReturnToIndexBis = from === "home";
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [message, setMessage] = useState("");
@@ -139,6 +143,14 @@ export default function ChangePassword() {
     checkAuth();
   }, [router]);
 
+  const handleReturn = () => {
+    if (shouldReturnToIndexBis) {
+      router.push("/indexbis");
+      return;
+    }
+    router.back();
+  };
+
   // ✅ Soumission du formulaire
    
   const onSubmit = async (data) => {
@@ -155,7 +167,7 @@ export default function ChangePassword() {
         setMessage("Mot de passe changé avec succès ✅");
         reset();
         setPasswordStrength(0);
-        setTimeout(() => router.back(), 2000);
+        setTimeout(() => handleReturn(), 2000);
       } else {
         setMessage(json.error || "Erreur lors du changement de mot de passe.");
       }
@@ -261,7 +273,7 @@ export default function ChangePassword() {
         <div className="text-center mt-4">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={handleReturn}
             disabled={busy}
             className={`text-sm ${busy ? "text-gray-400" : "text-blue-600 hover:underline"}`}
           >

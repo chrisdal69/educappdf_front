@@ -45,8 +45,13 @@ const BG_SWAP_DELAY_MS = Math.max(
   RAISE_START_MS - BG_SWAP_LEAD_MS - BG_ADVANCE_MS
 );
 
-function useMotionDelayState(delayMs, setState) {
+function useMotionDelayState(delayMs, setState, immediate = false) {
   useEffect(() => {
+    if (immediate) {
+      setState(true);
+      return;
+    }
+
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let timerId;
 
@@ -96,7 +101,7 @@ function useMotionDelayState(delayMs, setState) {
         mediaQuery.removeListener(handleChange);
       }
     };
-  }, [delayMs, setState]);
+  }, [delayMs, immediate, setState]);
 }
 
 const isValidPositions = (positions) =>
@@ -144,12 +149,12 @@ function createOrder(count) {
 
 const RANDOM_ORDER = createOrder(LETTERS.length);
 
-function Anim2({ initialPositions }) {
+function Anim2({ initialPositions, skipIntro = false }) {
   const [bgSrc, setBgSrc] = useState(BG_SOURCES.mobile);
-  const [showNav, setShowNav] = useState(false);
+  const [showNav, setShowNav] = useState(() => Boolean(skipIntro));
   const [decalage, setDecalage] = useState(0);
-  const [allowSpinner, setAllowSpinner] = useState(false);
-  const [phaseBg, setPhaseBg] = useState(false);
+  const [allowSpinner, setAllowSpinner] = useState(() => Boolean(skipIntro));
+  const [phaseBg, setPhaseBg] = useState(() => Boolean(skipIntro));
   const swapDelay = BG_SWAP_DELAY_MS;
   const dispatch = useDispatch();
   const cardsStatus = useSelector((state) => state.cardsMaths.status);
@@ -204,13 +209,13 @@ function Anim2({ initialPositions }) {
     };
   }, []);
 
-  useMotionDelayState(RAISE_START_MS, setShowNav);
-  useMotionDelayState(swapDelay, setPhaseBg);
-  useMotionDelayState(ANIMATION_END_MS, setAllowSpinner);
+  useMotionDelayState(RAISE_START_MS, setShowNav, skipIntro);
+  useMotionDelayState(swapDelay, setPhaseBg, skipIntro);
+  useMotionDelayState(ANIMATION_END_MS, setAllowSpinner, skipIntro);
 
   return (
     <div
-      className={`page${phaseBg ? " page--phase" : ""}`}
+      className={`page${phaseBg ? " page--phase" : ""}${skipIntro ? " page--skip" : ""}`}
       style={{ "--count": LETTERS.length }}
     >
       {showNav ? (
@@ -294,6 +299,32 @@ function Anim2({ initialPositions }) {
 
         .page--phase {
           background-color: var(--bg-phasec);
+        }
+
+        .page--skip .letter {
+          animation: none;
+          transform: translate(
+            calc((var(--i) * var(--spacing)) - var(--half)),
+            var(--top-shift)
+          );
+          opacity: 1;
+          font-weight: 500;
+          color: var(--text-dark);
+        }
+
+        .page--skip .hero {
+          animation: none;
+          width: 100vw;
+          height: 100vh;
+          top: 50%;
+          transform: translate(-50%, calc(-50% + ${decalage}px));
+          opacity: 1;
+        }
+
+        .page--skip .navWrap {
+          animation: none;
+          transform: none;
+          opacity: 1;
         }
 
         .stage {

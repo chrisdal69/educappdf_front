@@ -8,8 +8,6 @@ import { setCardsMaths } from "../reducers/cardsMathsSlice";
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
 
-
-
 export default function Account(props) {
   const router = useRouter();
   const [message, setMessage] = useState("");
@@ -28,7 +26,7 @@ export default function Account(props) {
         setMessage(response.message);
         dispatch(clearAuth());
         isAdmin && dispatch(setCardsMaths([]));
-        console.log("✅ Déconnexion réussie ", response , isAdmin);
+        console.log("✅ Déconnexion réussie ", response, isAdmin);
         props.close();
         if (typeof window !== "undefined") {
           window.location.replace("/");
@@ -51,6 +49,7 @@ export default function Account(props) {
           {user.prenom} {user.nom}
         </h2>
       )}
+      {user && <h2 className="text-2xl  mb-6">{user.name}</h2>}
       {message && <p className="text-blue-600 mb-4">{message}</p>}
 
       <button
@@ -59,14 +58,41 @@ export default function Account(props) {
       >
         Logout
       </button>
-
-      <Link
-        href="/changepassword"
-        className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-        onClick={() => props.close()}
-      >
-        Changer le mot de passe
-      </Link>
+      <div className="flex flex-col justify-center">
+        {" "}
+        {(() => {
+          const fromPath = (router.asPath || "/").split("?")[0];
+          const changePasswordHref =
+            fromPath === "/" ? "/changepassword?from=home" : "/changepassword";
+          return (
+            <Link
+              href={changePasswordHref}
+              className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+              onClick={() => props.close()}
+            >
+              Changer le mot de passe
+            </Link>
+          );
+        })()}
+        <Link
+          href={
+            (router.asPath || "/").split("?")[0] === "/"
+              ? "/leaveclass?from=home"
+              : "/leaveclass"
+          }
+          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+          onClick={() => props.close()}
+        >
+          Se désinscrire de la classe de {user.name}
+        </Link>
+         <Link
+          href="/deleteaccount"
+          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+          onClick={() => props.close()}
+        >
+          Supprimer mon compte de MathsApp
+        </Link>
+      </div>
     </div>
   );
 }

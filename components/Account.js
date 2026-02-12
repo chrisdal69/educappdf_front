@@ -88,7 +88,7 @@ export default function Account(props) {
               className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
               onClick={() => props.close()}
             >
-              Supprimer mon compte de MathsApp
+              Supprimer mon compte MathsApp
             </Link>
           </>
         )}

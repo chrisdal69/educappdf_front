@@ -7,8 +7,7 @@ import { useSelector } from "react-redux";
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
-
-const EXPECTED_PHRASE = "JE VEUX ME DESINSCRIRE";
+const EXPECTED_PHRASE = `JE VEUX ME DESINSCRIRE DE CETTE CLASSE`;
 
 export default function LeaveClass() {
   const router = useRouter();
@@ -62,12 +61,15 @@ export default function LeaveClass() {
 
       if (Array.isArray(json.errors) && json.errors.length) {
         setMessage(
-          json.errors[0]?.message || "Impossible de se désinscrire de cette classe"
+          json.errors[0]?.message ||
+            "Impossible de se désinscrire de cette classe",
         );
         return;
       }
 
-      setMessage(json.message || "Impossible de se désinscrire de cette classe");
+      setMessage(
+        json.message || "Impossible de se désinscrire de cette classe",
+      );
     } catch (err) {
       setMessage("Erreur serveur.");
     } finally {
@@ -92,9 +94,7 @@ export default function LeaveClass() {
           ci-dessous : "{EXPECTED_PHRASE}"
         </p>
 
-        {message && (
-          <p className="text-center mt-4 text-blue-600">{message}</p>
-        )}
+        {message && <p className="text-center mt-4 text-blue-600">{message}</p>}
 
         <div className="text-center mt-4 space-y-4">
           <input

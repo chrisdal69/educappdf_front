@@ -44,10 +44,10 @@ export default function Login(props) {
 
   const busy = isSubmitting;
 
-  const getTargetPath = (role, directory) => {
+  const getTargetPath = (role, directoryname) => {
     const fromPath = (router.asPath || "/").split("?")[0];
     const sanitizedDirectory =
-      typeof directory === "string" ? directory.trim() : "";
+      typeof directoryname === "string" ? directoryname.trim() : "";
 
     const userPath = sanitizedDirectory ? `/${sanitizedDirectory}` : "/";
     const adminPath = sanitizedDirectory ? `/admin/${sanitizedDirectory}` : "/admin";
@@ -94,9 +94,9 @@ export default function Login(props) {
           prenom: response.prenom,
           role: response.role,
           classId: response.classId,
-          name: response.name,
-          directory: response.directory,
-          tabs: response.tabs,
+          publicname: response.publicname,
+          directoryname: response.directoryname,
+          repertoires: response.repertoires,
         })
       );
 
@@ -109,7 +109,7 @@ export default function Login(props) {
 
       if (!props.deferNavigation) {
         props.close?.();
-        router.push(getTargetPath(response.role, response.directory));
+        router.push(getTargetPath(response.role, response.directoryname));
       }
       return true;
     } catch (err) {
@@ -162,7 +162,7 @@ export default function Login(props) {
         if (cl?.id) {
           classMap.set(String(cl.id), {
             id: String(cl.id),
-            name: cl.name || "Classe sans nom",
+            publicname: cl.publicname || "Classe sans nom",
           });
         }
       });
@@ -171,7 +171,7 @@ export default function Login(props) {
         if (cl?.id && !classMap.has(String(cl.id))) {
           classMap.set(String(cl.id), {
             id: String(cl.id),
-            name: cl.name || "Classe sans nom",
+            publicname: cl.publicname || "Classe sans nom",
           });
         }
       });
@@ -366,7 +366,7 @@ export default function Login(props) {
                   }
                   disabled={isValidatingClass}
                 />
-                <span className="text-sm text-gray-800">{cl.name}</span>
+                <span className="text-sm text-gray-800">{cl.publicname}</span>
               </label>
             ))}
           </div>

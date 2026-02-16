@@ -55,7 +55,7 @@ export default function Account(props) {
           {user.prenom} {user.nom}
         </h2>
       )}
-      {user && <h2 className="text-2xl mb-6">{user.name}</h2>}
+      {user && <h2 className="text-2xl mb-6">{user.publicname}</h2>}
       {message && <p className="text-blue-600 mb-4">{message}</p>}
 
       <button
@@ -81,7 +81,7 @@ export default function Account(props) {
               className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
               onClick={() => props.close()}
             >
-              Se désinscrire de la classe de {user?.name}
+              Se désinscrire de la classe de {user?.publicname}
             </Link>
             <Link
               href="/deleteaccount"
@@ -96,4 +96,3 @@ export default function Account(props) {
     </div>
   );
 }
-

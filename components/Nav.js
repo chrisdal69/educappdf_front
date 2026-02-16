@@ -41,7 +41,7 @@ export default function Nav(props) {
   const router = useRouter();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const isAdmin = isAuthenticated && user?.role === "admin";
-  const tabs = isAuthenticated ? buildTabs(user?.tabs) : [];
+  const tabs = isAuthenticated ? buildTabs(user?.repertoires) : [];
   const tabsSignature = useMemo(
     () => tabs.map((tab) => tab.slug).join("|"),
     [tabs]

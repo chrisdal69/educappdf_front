@@ -87,10 +87,10 @@ export default function LeaveClass() {
         aria-busy={busy}
       >
         <h2 className="text-2xl font-semibold text-center mb-6">
-          Se désinscrire de la classe de {user?.name}
+          Se désinscrire de la classe de {user?.publicname}
         </h2>
         <p>
-          Pour te désinscrire de la classe {user?.name}, écris dans le champ
+          Pour te désinscrire de la classe {user?.publicname}, écris dans le champ
           ci-dessous : "{EXPECTED_PHRASE}"
         </p>
 

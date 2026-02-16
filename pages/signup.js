@@ -1,21 +1,30 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import zxcvbn from "zxcvbn";
 import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 import Link from "next/link";
+
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
 
-// ✅ Validation schéma
 const nameRegex = /^[\p{L}\s_-]+$/u;
+const teacherCodeRegex = /^[A-Za-z0-9]{4}$/;
 
-const schema = yup.object().shape({
+const teacherCodeSchema = yup.object().shape({
+  code: yup
+    .string()
+    .trim()
+    .matches(teacherCodeRegex, "Code professeur invalide")
+    .required("Code professeur obligatoire"),
+});
+
+const identitySchema = yup.object().shape({
   nom: yup
     .string()
     .min(2, "Min 2 caractères")
@@ -27,6 +36,9 @@ const schema = yup.object().shape({
     .matches(nameRegex, "Lettres, espaces, - ou _ uniquement")
     .required("Prénom obligatoire"),
   email: yup.string().email("Email invalide").required("Email obligatoire"),
+});
+
+const newPasswordSchema = yup.object().shape({
   password: yup
     .string()
     .min(8, "8 caractères minimum")
@@ -44,14 +56,25 @@ const schema = yup.object().shape({
     .required("Confirmation requise"),
 });
 
+const existingPasswordSchema = yup.object().shape({
+  password: yup.string().required("Mot de passe obligatoire"),
+});
+
 export default function SignupWizard() {
   const router = useRouter();
 
   const [step, setStep] = useState(1);
-  const [email, setEmail] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const [classId, setClassId] = useState("");
+  const [students, setStudents] = useState([]);
+
+  const [identity, setIdentity] = useState(null);
+  const [emailExists, setEmailExists] = useState(false);
+
+  const [verificationCode, setVerificationCode] = useState("");
+
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -63,109 +86,75 @@ export default function SignupWizard() {
     special: false,
   });
 
-  const {
-    register,
-    handleSubmit,
-    resetField, // 👈 ajoute ici !
-    watch,
-    formState: { errors, isValid, isSubmitting },
-  } = useForm({
-    resolver: yupResolver(schema),
+  const steps = [
+    "Code professeur",
+    "Identité",
+    "Mot de passe",
+    "Vérification",
+    "Succès",
+  ];
+
+  const teacherForm = useForm({
+    resolver: yupResolver(teacherCodeSchema),
     mode: "onChange",
-    defaultValues: {
-      nom: "",
-      prenom: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { code: "" },
   });
 
-  const password = watch("password", "");
+  const identityForm = useForm({
+    resolver: yupResolver(identitySchema),
+    mode: "onChange",
+    defaultValues: { nom: "", prenom: "", email: "" },
+  });
+
+  const newPasswordForm = useForm({
+    resolver: yupResolver(newPasswordSchema),
+    mode: "onChange",
+    defaultValues: { password: "", confirmPassword: "" },
+  });
+
+  const existingPasswordForm = useForm({
+    resolver: yupResolver(existingPasswordSchema),
+    mode: "onChange",
+    defaultValues: { password: "" },
+  });
+
+  const watchedPassword = newPasswordForm.watch("password", "");
+
   useEffect(() => {
     setPasswordRules({
-      length: password.length >= 8,
-      upper: /[A-Z]/.test(password),
-      lower: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-      special: /[^A-Za-z0-9]/.test(password),
+      length: watchedPassword.length >= 8,
+      upper: /[A-Z]/.test(watchedPassword),
+      lower: /[a-z]/.test(watchedPassword),
+      number: /[0-9]/.test(watchedPassword),
+      special: /[^A-Za-z0-9]/.test(watchedPassword),
     });
-    setPasswordStrength(zxcvbn(password).score);
-  }, [password]);
+    setPasswordStrength(zxcvbn(watchedPassword).score);
+  }, [watchedPassword]);
 
-  // === API CALLS ===
-  const onSubmitSignup = async (data) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${urlFetch}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      const json = await res.json();
-      if (res.ok) {
-        setEmail(data.email);
-        setStep(2);
-        setMessage("Un code a été envoyé à votre email.");
-      } else {
-        setMessage(json.error || "Erreur d'inscription.");
-      }
-    } catch (err) {
-      setMessage("Erreur serveur.");
-    } finally {
-      setIsLoading(false);
-    }
+  const renderPasswordRules = () => {
+    const rules = [
+      { key: "length", label: "Au moins 8 caractères" },
+      { key: "upper", label: "Une majuscule" },
+      { key: "lower", label: "Une minuscule" },
+      { key: "number", label: "Un chiffre" },
+      { key: "special", label: "Un caractère spécial (!, $, #, ...)" },
+    ];
+    return (
+      <ul className="mt-3 space-y-1 text-sm">
+        {rules.map((rule) => (
+          <li
+            key={rule.key}
+            className={`flex items-center gap-2 ${
+              passwordRules[rule.key] ? "text-green-600" : "text-gray-500"
+            }`}
+          >
+            {passwordRules[rule.key] ? "✓" : "✗"} {rule.label}
+          </li>
+        ))}
+      </ul>
+    );
   };
 
-  const handleVerifyCode = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${urlFetch}/auth/verifmail`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code: verificationCode }),
-      });
-      const json = await res.json();
-      if (res.ok) {
-        setStep(3);
-        setMessage("");
-        setTimeout(() => router.push("/"), 2000);
-      } else {
-        setMessage(json.error || "Code invalide.");
-        setVerificationCode("");
-      }
-    } catch (err) {
-      setMessage("Erreur serveur.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResendCode = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${urlFetch}/auth/resend-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const json = await res.json();
-      if (res.ok) {
-        setMessage("Nouveau code envoyé !");
-        setVerificationCode("");
-      } else {
-        setMessage(json.error || "Erreur lors du renvoi.");
-      }
-    } catch (err) {
-      setMessage("Erreur serveur.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // === BARRE DE PROGRESSION ===
-  const steps = ["Inscription", "Vérification", "Succès"];
-  // === MOT DE PASS : TEST en DIRECT ===
   const getStrengthLabel = (score) => {
     const labels = ["Très faible", "Faible", "Moyen", "Bon", "Excellent"];
     const colors = ["#dc2626", "#f97316", "#eab308", "#22c55e", "#16a34a"];
@@ -187,36 +176,266 @@ export default function SignupWizard() {
     );
   };
 
-  const renderPasswordRules = () => {
-    const rules = [
-      { key: "length", label: "Au moins 8 caractères" },
-      { key: "upper", label: "Une majuscule" },
-      { key: "lower", label: "Une minuscule" },
-      { key: "number", label: "Un chiffre" },
-      { key: "special", label: "Un caractère spécial (!, $, #, ...)" },
-    ];
-    return (
-      <ul className="mt-3 space-y-1 text-sm">
-        {rules.map((rule) => (
-          <li
-            key={rule.key}
-            className={`flex items-center gap-2 ${
-              passwordRules[rule.key] ? "text-green-600" : "text-gray-500"
-            }`}
-          >
-            {passwordRules[rule.key] ? "✅" : "❌"} {rule.label}
-          </li>
-        ))}
-      </ul>
+  const watchedNom = identityForm.watch("nom", "");
+  const watchedPrenom = identityForm.watch("prenom", "");
+
+  const matchingStudents = useMemo(() => {
+    const nomQuery = `${watchedNom}`.trim().toLowerCase();
+    const prenomQuery = `${watchedPrenom}`.trim().toLowerCase();
+    const source = Array.isArray(students) ? students : [];
+    const available = source.filter(
+      (st) => st?.free !== false && st?.id_user == null
     );
+
+    if (!nomQuery && !prenomQuery) {
+      return available.slice(0, 8);
+    }
+
+    return available
+      .filter((st) => {
+        const stNom = `${st?.nom || ""}`.toLowerCase();
+        const stPrenom = `${st?.prenom || ""}`.toLowerCase();
+        return (
+          (!nomQuery || stNom.includes(nomQuery)) &&
+          (!prenomQuery || stPrenom.includes(prenomQuery))
+        );
+      })
+      .slice(0, 8);
+  }, [students, watchedNom, watchedPrenom]);
+
+  const fillFromStudent = (student) => {
+    identityForm.setValue("nom", student?.nom || "", { shouldValidate: true });
+    identityForm.setValue("prenom", student?.prenom || "", {
+      shouldValidate: true,
+    });
   };
+
+  const redirectHomeWithMessage = (msg) => {
+    setMessage(msg || "Erreur.");
+    //setTimeout(() => router.push("/"), 1500);
+  };
+
+  const onValidateTeacherCode = async ({ code }) => {
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${urlFetch}/auth/signup/validate-teacher-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        redirectHomeWithMessage(
+          json.message || "Ce code n'est pas ou n'est plus valide",
+        );
+        return;
+      }
+
+      setClassId(json.classId || "");
+      setStudents(Array.isArray(json.students) ? json.students : []);
+      setStep(2);
+    } catch (err) {
+      redirectHomeWithMessage("Erreur serveur.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onCheckIdentity = async (data) => {
+    if (!classId) {
+      redirectHomeWithMessage("Ce code n'est pas ou n'est plus valide");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${urlFetch}/auth/signup/check-student`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, classId }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (json.redirect) {
+          redirectHomeWithMessage(json.message || "Erreur.");
+          return;
+        }
+        setMessage(json.message || json.error || "Erreur.");
+        return;
+      }
+
+      setIdentity(data);
+      setEmailExists(!!json.emailExists);
+      setStep(3);
+      existingPasswordForm.reset({ password: "" });
+      newPasswordForm.reset({ password: "", confirmPassword: "" });
+    } catch (err) {
+      setMessage("Erreur serveur.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onCreateAccount = async (data) => {
+    if (!classId || !identity) {
+      redirectHomeWithMessage("Erreur.");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${urlFetch}/auth/signup/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classId,
+          ...identity,
+          password: data.password,
+          confirmPassword: data.confirmPassword,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (json.redirect) {
+          redirectHomeWithMessage(json.message || "Erreur.");
+          return;
+        }
+        setMessage(json.error || json.message || "Erreur d'inscription.");
+        return;
+      }
+
+      setMessage("Un code a été envoyé à votre email.");
+      setVerificationCode("");
+      setStep(4);
+    } catch (err) {
+      setMessage("Erreur serveur.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onJoinExistingAccount = async (data) => {
+    if (!classId || !identity) {
+      redirectHomeWithMessage("Erreur.");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${urlFetch}/auth/signup/join-existing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classId,
+          ...identity,
+          password: data.password,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (json.redirect) {
+          redirectHomeWithMessage(json.message || "Erreur.");
+          return;
+        }
+        setMessage(json.message || "Erreur.");
+        return;
+      }
+
+      setStep(5);
+      setMessage("");
+      setTimeout(() => router.push("/"), 2000);
+    } catch (err) {
+      setMessage("Erreur serveur.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!identity?.email) {
+      redirectHomeWithMessage("Erreur.");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${urlFetch}/auth/verifmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: identity.email,
+          code: verificationCode,
+          classId,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(json.error || "Code invalide.");
+        setVerificationCode("");
+        return;
+      }
+
+      setStep(5);
+      setTimeout(() => router.push("/"), 2000);
+    } catch (err) {
+      setMessage("Erreur serveur.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!identity?.email) {
+      setMessage("Email manquant.");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${urlFetch}/auth/resend-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: identity.email }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(json.error || "Erreur lors du renvoi.");
+        return;
+      }
+
+      setMessage("Nouveau code envoyé !");
+      setVerificationCode("");
+    } catch (err) {
+      setMessage("Erreur serveur.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div
       className="w-full min-h-screen flex items-center justify-center p-4"
       style={{ backgroundColor: "#b8b8b6" }}
     >
       <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative">
-        {/* Barre de progression */}
         <div className="flex justify-between mb-6">
           {steps.map((label, idx) => (
             <div key={idx} className="flex-1 text-center">
@@ -229,48 +448,86 @@ export default function SignupWizard() {
               >
                 {idx + 1}
               </div>
-              <p className="text-xs mt-1">{label}</p>
+              <p className="text-[11px] mt-1 px-1 leading-tight">{label}</p>
             </div>
           ))}
         </div>
 
-        {/* Messages */}
         {message && (
           <p className="text-center text-sm text-red-600 mb-4">{message}</p>
         )}
 
-        {/* Étapes avec animation */}
         <AnimatePresence mode="wait">
           {step === 1 && (
             <motion.div
-              key="signup"
+              key="teacher-code"
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 50 }}
               transition={{ duration: 0.3 }}
             >
               <h2 className="text-xl font-semibold text-center mb-4">
-                Créer un compte
+                Code professeur
               </h2>
               <form
-                onSubmit={handleSubmit(onSubmitSignup)}
+                onSubmit={teacherForm.handleSubmit(onValidateTeacherCode)}
                 className="space-y-4"
               >
-                {/* Champs leurres pour neutraliser l'autofill */}
-                <input
-                  type="text"
-                  name="fakeuser"
-                  autoComplete="off"
-                  style={{ display: "none" }}
-                />
-                <input
-                  type="password"
-                  name="fakepass"
-                  autoComplete="new-password"
-                  style={{ display: "none" }}
-                />
+                <div>
+                  <label
+                    htmlFor="teacherCode"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Saisir le code professeur
+                  </label>
+                  <input
+                    id="teacherCode"
+                    type="text"
+                    maxLength={4}
+                    {...teacherForm.register("code")}
+                    className="w-full border rounded px-3 py-2 tracking-widest text-center uppercase"
+                    disabled={isLoading}
+                  />
+                  {teacherForm.formState.errors.code && (
+                    <p className="text-sm text-red-600">
+                      {teacherForm.formState.errors.code.message}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  disabled={!teacherForm.formState.isValid || isLoading}
+                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                >
+                  {isLoading ? "Validation..." : "Valider"}
+                </button>
+                <div className="mt-1 text-center">
+                  <Link
+                    href="/"
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Retour page Accueil
+                  </Link>
+                </div>
+              </form>
+            </motion.div>
+          )}
 
-                {/* Nom */}
+          {step === 2 && (
+            <motion.div
+              key="identity"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-xl font-semibold text-center mb-4">
+                Identité
+              </h2>
+              <form
+                onSubmit={identityForm.handleSubmit(onCheckIdentity)}
+                className="space-y-4"
+              >
                 <div>
                   <label
                     htmlFor="nom"
@@ -281,15 +538,18 @@ export default function SignupWizard() {
                   <input
                     id="nom"
                     type="text"
-                    {...register("nom")}
+                    {...identityForm.register("nom")}
                     className="w-full border rounded px-3 py-2"
+                    disabled={isLoading}
+                    autoComplete="off"
                   />
-                  {errors.nom && (
-                    <p className="text-sm text-red-600">{errors.nom.message}</p>
+                  {identityForm.formState.errors.nom && (
+                    <p className="text-sm text-red-600">
+                      {identityForm.formState.errors.nom.message}
+                    </p>
                   )}
                 </div>
 
-                {/* Prénom */}
                 <div>
                   <label
                     htmlFor="prenom"
@@ -300,17 +560,40 @@ export default function SignupWizard() {
                   <input
                     id="prenom"
                     type="text"
-                    {...register("prenom")}
+                    {...identityForm.register("prenom")}
                     className="w-full border rounded px-3 py-2"
+                    disabled={isLoading}
+                    autoComplete="off"
                   />
-                  {errors.prenom && (
+                  {identityForm.formState.errors.prenom && (
                     <p className="text-sm text-red-600">
-                      {errors.prenom.message}
+                      {identityForm.formState.errors.prenom.message}
                     </p>
                   )}
                 </div>
 
-                {/* Email */}
+                {Array.isArray(matchingStudents) &&
+                  matchingStudents.length > 0 && (
+                    <div className="rounded-lg border bg-gray-50 p-3">
+                      <p className="text-xs text-gray-600 mb-2">
+                        Suggestions (clique pour auto-compléter)
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {matchingStudents.map((st, idx) => (
+                          <button
+                            key={`${st?.nom || ""}-${st?.prenom || ""}-${idx}`}
+                            type="button"
+                            onClick={() => fillFromStudent(st)}
+                            className="px-2 py-1 text-xs rounded bg-white border hover:bg-gray-100"
+                            disabled={isLoading}
+                          >
+                            {st?.nom} {st?.prenom}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                 <div>
                   <label
                     htmlFor="email"
@@ -321,17 +604,51 @@ export default function SignupWizard() {
                   <input
                     id="email"
                     type="email"
-                    {...register("email")}
+                    {...identityForm.register("email")}
                     className="w-full border rounded px-3 py-2"
+                    disabled={isLoading}
                   />
-                  {errors.email && (
+                  {identityForm.formState.errors.email && (
                     <p className="text-sm text-red-600">
-                      {errors.email.message}
+                      {identityForm.formState.errors.email.message}
                     </p>
                   )}
                 </div>
 
-                {/* Mot de passe */}
+                <button
+                  type="submit"
+                  disabled={!identityForm.formState.isValid || isLoading}
+                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                >
+                  {isLoading ? "Validation..." : "Valider"}
+                </button>
+                <div className="mt-1 text-center">
+                  <Link
+                    href="/"
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Retour page Accueil
+                  </Link>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {step === 3 && !emailExists && (
+            <motion.div
+              key="new-password"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-xl font-semibold text-center mb-4">
+                Créer un mot de passe
+              </h2>
+              <form
+                onSubmit={newPasswordForm.handleSubmit(onCreateAccount)}
+                className="space-y-4"
+              >
                 <div>
                   <label
                     htmlFor="password"
@@ -343,13 +660,16 @@ export default function SignupWizard() {
                     <input
                       id="password"
                       type={passwordVisible ? "text" : "password"}
-                      {...register("password")}
+                      {...newPasswordForm.register("password")}
                       className="w-full border rounded px-3 py-2 pr-10"
+                      disabled={isLoading}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
-                      onClick={() => setPasswordVisible(!passwordVisible)}
+                      onClick={() => setPasswordVisible((v) => !v)}
                       className="absolute right-3 top-2 text-gray-500"
+                      disabled={isLoading}
                     >
                       {passwordVisible ? (
                         <EyeOff size={18} />
@@ -358,16 +678,15 @@ export default function SignupWizard() {
                       )}
                     </button>
                   </div>
-                  {errors.password && (
+                  {newPasswordForm.formState.errors.password && (
                     <p className="text-sm text-red-600">
-                      {errors.password.message}
+                      {newPasswordForm.formState.errors.password.message}
                     </p>
                   )}
                   {renderPasswordRules()}
-                  {password && getStrengthLabel(passwordStrength)}
+                  {watchedPassword && getStrengthLabel(passwordStrength)}
                 </div>
 
-                {/* Confirmation mot de passe */}
                 <div>
                   <label
                     htmlFor="confirmPassword"
@@ -379,13 +698,16 @@ export default function SignupWizard() {
                     <input
                       id="confirmPassword"
                       type={confirmVisible ? "text" : "password"}
-                      {...register("confirmPassword")}
+                      {...newPasswordForm.register("confirmPassword")}
                       className="w-full border rounded px-3 py-2 pr-10"
+                      disabled={isLoading}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
-                      onClick={() => setConfirmVisible(!confirmVisible)}
+                      onClick={() => setConfirmVisible((v) => !v)}
                       className="absolute right-3 top-2 text-gray-500"
+                      disabled={isLoading}
                     >
                       {confirmVisible ? (
                         <EyeOff size={18} />
@@ -394,16 +716,16 @@ export default function SignupWizard() {
                       )}
                     </button>
                   </div>
-                  {errors.confirmPassword && (
+                  {newPasswordForm.formState.errors.confirmPassword && (
                     <p className="text-sm text-red-600">
-                      {errors.confirmPassword.message}
+                      {newPasswordForm.formState.errors.confirmPassword.message}
                     </p>
                   )}
                 </div>
 
                 <button
                   type="submit"
-                  disabled={!isValid || isSubmitting || isLoading}
+                  disabled={!newPasswordForm.formState.isValid || isLoading}
                   className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
                 >
                   {isLoading ? "Envoi..." : "S'inscrire"}
@@ -420,7 +742,71 @@ export default function SignupWizard() {
             </motion.div>
           )}
 
-          {step === 2 && (
+          {step === 3 && emailExists && (
+            <motion.div
+              key="existing-password"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-xl font-semibold text-center mb-4">
+                Connexion
+              </h2>
+              <p className="text-sm text-gray-600 mb-3 text-center">
+                Cet email est déjà enregistré. Saisissez votre mot de passe pour
+                rejoindre la classe.
+              </p>
+              <form
+                onSubmit={existingPasswordForm.handleSubmit(
+                  onJoinExistingAccount,
+                )}
+                className="space-y-4"
+              >
+                <div>
+                  <label
+                    htmlFor="existingPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Mot de passe
+                  </label>
+                  <input
+                    id="existingPassword"
+                    type="password"
+                    {...existingPasswordForm.register("password")}
+                    className="w-full border rounded px-3 py-2"
+                    disabled={isLoading}
+                    autoComplete="current-password"
+                  />
+                  {existingPasswordForm.formState.errors.password && (
+                    <p className="text-sm text-red-600">
+                      {existingPasswordForm.formState.errors.password.message}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={
+                    !existingPasswordForm.formState.isValid || isLoading
+                  }
+                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                >
+                  {isLoading ? "Connexion..." : "Se connecter"}
+                </button>
+                <div className="mt-1 text-center">
+                  <Link
+                    href="/"
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Retour page Accueil
+                  </Link>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {step === 4 && (
             <motion.div
               key="verify"
               initial={{ opacity: 0, x: -50 }}
@@ -431,25 +817,28 @@ export default function SignupWizard() {
             >
               <h2 className="text-xl font-semibold mb-4">Vérification email</h2>
               <p className="text-sm text-gray-600 mb-3">
-                Code envoyé à <strong>{email}</strong>
+                Code envoyé à <strong>{identity?.email}</strong>
               </p>
               <input
                 type="text"
-                maxLength={6}
+                maxLength={4}
                 placeholder="Code"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
                 className="border rounded px-4 py-2 text-center tracking-widest w-40"
+                disabled={isLoading}
               />
               <div className="mt-4 space-y-2">
                 <button
+                  type="button"
                   onClick={handleVerifyCode}
-                  disabled={isLoading}
+                  disabled={isLoading || verificationCode.trim().length !== 4}
                   className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300"
                 >
                   {isLoading ? "Vérification..." : "Valider"}
                 </button>
                 <button
+                  type="button"
                   onClick={handleResendCode}
                   disabled={isLoading}
                   className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
@@ -457,10 +846,18 @@ export default function SignupWizard() {
                   Renvoyer le code
                 </button>
               </div>
+              <div className="mt-1 text-center">
+                  <Link
+                    href="/"
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Retour page Accueil
+                  </Link>
+                </div>
             </motion.div>
           )}
 
-          {step === 3 && (
+          {step === 5 && (
             <motion.div
               key="success"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -470,9 +867,9 @@ export default function SignupWizard() {
               className="text-center"
             >
               <CheckCircle className="mx-auto text-green-500" size={48} />
-              <h2 className="text-xl font-semibold mt-3">Compte activé ✅</h2>
+              <h2 className="text-xl font-semibold mt-3">Succès ✅</h2>
               <p className="text-sm text-gray-600 mt-2">
-                Redirection vers la page de Accueil...
+                Redirection vers la page d'accueil...
               </p>
             </motion.div>
           )}

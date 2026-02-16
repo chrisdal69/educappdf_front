@@ -184,7 +184,7 @@ export default function SignupWizard() {
     const prenomQuery = `${watchedPrenom}`.trim().toLowerCase();
     const source = Array.isArray(students) ? students : [];
     const available = source.filter(
-      (st) => st?.free !== false && st?.id_user == null
+      (st) => st?.free !== false && st?.id_user == null,
     );
 
     if (!nomQuery && !prenomQuery) {
@@ -622,15 +622,16 @@ export default function SignupWizard() {
                 >
                   {isLoading ? "Validation..." : "Valider"}
                 </button>
-                <div className="mt-1 text-center">
-                  <Link
-                    href="/"
-                    className="text-sm font-medium text-blue-600 hover:underline"
-                  >
-                    Retour page Accueil
-                  </Link>
-                </div>
               </form>
+              <div className="mt-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="text-blue-700 rounded hover:underline text-sm"
+                >
+                  Retour page précédente
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -730,15 +731,16 @@ export default function SignupWizard() {
                 >
                   {isLoading ? "Envoi..." : "S'inscrire"}
                 </button>
-                <div className="mt-1 text-center">
-                  <Link
-                    href="/"
-                    className="text-sm font-medium text-blue-600 hover:underline"
-                  >
-                    Retour page Accueil
-                  </Link>
-                </div>
               </form>
+              <div className="mt-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="text-blue-700 rounded hover:underline text-sm"
+                >
+                  Retour page précédente
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -794,15 +796,16 @@ export default function SignupWizard() {
                 >
                   {isLoading ? "Connexion..." : "Se connecter"}
                 </button>
-                <div className="mt-1 text-center">
-                  <Link
-                    href="/"
-                    className="text-sm font-medium text-blue-600 hover:underline"
-                  >
-                    Retour page Accueil
-                  </Link>
-                </div>
               </form>
+              <div className="mt-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="text-blue-700 rounded hover:underline text-sm"
+                >
+                  Retour page précédente
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -846,14 +849,6 @@ export default function SignupWizard() {
                   Renvoyer le code
                 </button>
               </div>
-              <div className="mt-1 text-center">
-                  <Link
-                    href="/"
-                    className="text-sm font-medium text-blue-600 hover:underline"
-                  >
-                    Retour page Accueil
-                  </Link>
-                </div>
             </motion.div>
           )}
 

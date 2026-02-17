@@ -24,6 +24,10 @@ export default function ManageClass() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addNom, setAddNom] = useState("");
+  const [addPrenom, setAddPrenom] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
   const [deleteOpenKey, setDeleteOpenKey] = useState("");
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteLoadingKey, setDeleteLoadingKey] = useState("");
@@ -78,6 +82,41 @@ export default function ManageClass() {
     fetchStudents();
   }, [fetchStudents]);
 
+  const handleAddStudent = async () => {
+    const trimmedNom = String(addNom || "").trim();
+    const trimmedPrenom = String(addPrenom || "").trim();
+    if (!trimmedNom || !trimmedPrenom) return;
+
+    setAddLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `${urlFetch}/users/admin/class/${classId}/students`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ nom: trimmedNom, prenom: trimmedPrenom }),
+        }
+      );
+      throwIfUnauthorized(res);
+      const payload = await res.json();
+      if (!res.ok) {
+        setErrorMessage(payload?.message || "Erreur lors de l'inscription.");
+        return;
+      }
+      setAddOpen(false);
+      setAddNom("");
+      setAddPrenom("");
+      await fetchStudents();
+    } catch (err) {
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) setErrorMessage("Erreur serveur.");
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
   const handleUnsubscribe = async (student) => {
     const studentKey = student?.studentId ? String(student.studentId) : "";
     if (!studentKey) return;
@@ -129,6 +168,62 @@ export default function ManageClass() {
 
         <div className="text-center pb-4">
           Liste des élèves inscrits par l’admin à ce cours
+        </div>
+
+        <div className="flex justify-end pb-4">
+          <Popover
+            trigger="click"
+            open={addOpen}
+            onOpenChange={(visible) => {
+              setAddOpen(visible);
+              if (visible) {
+                setDeleteOpenKey("");
+                setDeleteConfirmText("");
+              }
+            }}
+            content={
+              <div className="flex w-72 flex-col gap-2">
+                <Input
+                  value={addNom}
+                  onChange={(e) => setAddNom(e.target.value)}
+                  placeholder="Nom"
+                  maxLength={80}
+                  disabled={addLoading}
+                />
+                <Input
+                  value={addPrenom}
+                  onChange={(e) => setAddPrenom(e.target.value)}
+                  placeholder="Prénom"
+                  maxLength={80}
+                  disabled={addLoading}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setAddOpen(false);
+                      setAddNom("");
+                      setAddPrenom("");
+                    }}
+                    disabled={addLoading}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    size="small"
+                    type="primary"
+                    loading={addLoading}
+                    disabled={!String(addNom || "").trim() || !String(addPrenom || "").trim()}
+                    onClick={handleAddStudent}
+                  >
+                    Inscrire
+                  </Button>
+                </div>
+              </div>
+            }
+          >
+            <Button type="primary">Ajouter un élève</Button>
+          </Popover>
         </div>
 
         {loading && (

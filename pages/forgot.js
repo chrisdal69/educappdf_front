@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
+const CODE_TTL_MS = 7 * 60 * 1000;
 
 // === Schémas de validation ===
 const emailSchema = yup.object().shape({
@@ -49,6 +50,8 @@ export default function ForgotWizard() {
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [codeExpiresAt, setCodeExpiresAt] = useState(null);
+  const [remainingMs, setRemainingMs] = useState(0);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -97,6 +100,51 @@ export default function ForgotWizard() {
     }
   }, [newPassword, step]);
 
+  useEffect(() => {
+    if (step !== 2 || !codeExpiresAt) return;
+
+    const tick = () => {
+      setRemainingMs(Math.max(0, codeExpiresAt - Date.now()));
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [step, codeExpiresAt]);
+
+  const remainingLabel = React.useMemo(() => {
+    const totalSeconds = Math.floor((remainingMs || 0) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")} : ${String(seconds).padStart(
+      2,
+      "0",
+    )}`;
+  }, [remainingMs]);
+
+  useEffect(() => {
+    if (step !== 2 || !codeExpiresAt) return;
+
+    const msLeft = codeExpiresAt - Date.now();
+
+    if (msLeft <= 0) {
+      setMessage("Opération annulée");
+      const redirectTimeout = setTimeout(() => router.push("/"), 1500);
+      return () => clearTimeout(redirectTimeout);
+    }
+
+    let redirectTimeout = null;
+    const expireTimeout = setTimeout(() => {
+      setMessage("Opération annulée");
+      redirectTimeout = setTimeout(() => router.push("/"), 1500);
+    }, msLeft);
+
+    return () => {
+      clearTimeout(expireTimeout);
+      if (redirectTimeout) clearTimeout(redirectTimeout);
+    };
+  }, [step, codeExpiresAt, router]);
+
   // === ÉTAPE 1 : ENVOI EMAIL ===
   const onSubmitEmail = async (data) => {
     setIsLoading(true);
@@ -110,6 +158,8 @@ export default function ForgotWizard() {
       if (res.ok) {
         setEmail(data.email);
         setMessage("Un code a été envoyé à votre adresse email.");
+        setCodeExpiresAt(Date.now() + CODE_TTL_MS);
+        setRemainingMs(CODE_TTL_MS);
         setStep(2);
       } else {
         setMessage(json.error || "Erreur lors de l’envoi du code.");
@@ -166,7 +216,14 @@ export default function ForgotWizard() {
         body: JSON.stringify({ email }),
       });
       const json = await res.json();
-      setMessage(res.ok ? "Nouveau code envoyé !" : json.error);
+      if (res.ok) {
+        setMessage("Nouveau code envoyé !");
+        setCodeExpiresAt(Date.now() + CODE_TTL_MS);
+        setRemainingMs(CODE_TTL_MS);
+        resetField("code");
+      } else {
+        setMessage(json.error);
+      }
     } catch {
       setMessage("Erreur serveur.");
     } finally {
@@ -317,6 +374,9 @@ export default function ForgotWizard() {
               className="border rounded px-4 py-2 text-center tracking-widest w-40 mx-auto"
               disabled={busy}
             />
+            <p className="text-sm text-gray-600 mt-3">
+              Temps restant pour la saisie : {remainingLabel}
+            </p>
             {errors.code && (
               <p className="text-sm text-red-600">{errors.code.message}</p>
             )}
@@ -324,7 +384,7 @@ export default function ForgotWizard() {
             <div className="space-y-2 mt-4">
               <button
                 type="submit"
-                disabled={!isValid || busy}
+                disabled={!isValid || busy || (codeExpiresAt && remainingMs <= 0)}
                 className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700"
               >
                 Valider le code
@@ -343,6 +403,8 @@ export default function ForgotWizard() {
                 onClick={() => {
                   setStep(1);
                   setMessage("");
+                  setCodeExpiresAt(null);
+                  setRemainingMs(0);
                 }}
                 disabled={busy}
                 className="w-full py-2 flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 mt-2"

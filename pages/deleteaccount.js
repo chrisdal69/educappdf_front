@@ -83,9 +83,7 @@ export default function DeleteAccount() {
           ci-dessous : "{EXPECTED_PHRASE}"
         </p>
 
-        {message && (
-          <p className="text-center mt-4 text-blue-600">{message}</p>
-        )}
+        {message && <p className="text-center mt-4 text-blue-600">{message}</p>}
 
         <div className="text-center mt-4 space-y-4">
           <input

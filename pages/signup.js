@@ -159,12 +159,26 @@ export default function SignupWizard() {
 
   useEffect(() => {
     if (step !== 4 || !verificationExpiresAt) return;
-    if (remainingMs > 0) return;
 
-    setMessage("Opération d'inscription annulée");
-    const timeout = setTimeout(() => router.push("/"), 1500);
-    return () => clearTimeout(timeout);
-  }, [step, verificationExpiresAt, remainingMs, router]);
+    const msLeft = verificationExpiresAt - Date.now();
+
+    if (msLeft <= 0) {
+      setMessage("Opération d'inscription annulée");
+      const redirectTimeout = setTimeout(() => router.push("/"), 1500);
+      return () => clearTimeout(redirectTimeout);
+    }
+
+    let redirectTimeout = null;
+    const expireTimeout = setTimeout(() => {
+      setMessage("Opération d'inscription annulée");
+      redirectTimeout = setTimeout(() => router.push("/"), 1500);
+    }, msLeft);
+
+    return () => {
+      clearTimeout(expireTimeout);
+      if (redirectTimeout) clearTimeout(redirectTimeout);
+    };
+  }, [step, verificationExpiresAt, router]);
 
   const renderPasswordRules = () => {
     const rules = [
@@ -490,6 +504,39 @@ export default function SignupWizard() {
       setMessage("Nouveau code envoyé !");
       setVerificationCode("");
       setVerificationExpiresAt(Date.now() + CODE_TTL_MS);
+    } catch (err) {
+      setMessage("Erreur serveur.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelSignup = async () => {
+    if (!identity?.email) {
+      setMessage("Email manquant.");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${urlFetch}/auth/signup/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: identity.email }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(json.message || json.error || "Erreur.");
+        return;
+      }
+
+      setMessage("Inscription annulée");
+      setVerificationExpiresAt(null);
+      setRemainingMs(0);
+      setTimeout(() => router.push("/"), 1500);
     } catch (err) {
       setMessage("Erreur serveur.");
     } finally {
@@ -950,6 +997,14 @@ export default function SignupWizard() {
                   className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                 >
                   Renvoyer le code
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelSignup}
+                  disabled={isLoading}
+                  className="w-full py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-300"
+                >
+                  Annuler l'inscription
                 </button>
               </div>
             </motion.div>

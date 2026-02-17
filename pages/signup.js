@@ -626,7 +626,10 @@ export default function SignupWizard() {
               <div className="mt-1 text-center">
                 <button
                   type="button"
-                  onClick={() => setStep(1)}
+                  onClick={() => {
+                    setStep(1);
+                    setMessage("");
+                  }}
                   className="text-blue-700 rounded hover:underline text-sm"
                 >
                   Retour page précédente
@@ -735,7 +738,10 @@ export default function SignupWizard() {
               <div className="mt-1 text-center">
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={() => {
+                    setStep(2);
+                    setMessage("");
+                  }}
                   className="text-blue-700 rounded hover:underline text-sm"
                 >
                   Retour page précédente
@@ -800,7 +806,10 @@ export default function SignupWizard() {
               <div className="mt-1 text-center">
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={() => {
+                    setStep(2);
+                    setMessage("");
+                  }}
                   className="text-blue-700 rounded hover:underline text-sm"
                 >
                   Retour page précédente

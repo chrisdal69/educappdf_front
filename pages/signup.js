@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import zxcvbn from "zxcvbn";
@@ -8,6 +8,7 @@ import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { AutoComplete, Input } from "antd";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -238,11 +239,39 @@ export default function SignupWizard() {
   }, [students, watchedNom, watchedPrenom]);
 
   const fillFromStudent = (student) => {
-    identityForm.setValue("nom", student?.nom || "", { shouldValidate: true });
+    identityForm.setValue("nom", student?.nom || "", {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
     identityForm.setValue("prenom", student?.prenom || "", {
       shouldValidate: true,
+      shouldDirty: true,
     });
   };
+
+  const studentOptionsNom = useMemo(() => {
+    const source = Array.isArray(matchingStudents) ? matchingStudents : [];
+    return source
+      .filter((st) => st?.nom && st?.prenom)
+      .map((st, idx) => ({
+        key: `${st.nom}-${st.prenom}-${idx}`,
+        value: st.nom,
+        label: `${st.nom} ${st.prenom}`,
+        student: st,
+      }));
+  }, [matchingStudents]);
+
+  const studentOptionsPrenom = useMemo(() => {
+    const source = Array.isArray(matchingStudents) ? matchingStudents : [];
+    return source
+      .filter((st) => st?.nom && st?.prenom)
+      .map((st, idx) => ({
+        key: `${st.prenom}-${st.nom}-${idx}`,
+        value: st.prenom,
+        label: `${st.prenom} (${st.nom})`,
+        student: st,
+      }));
+  }, [matchingStudents]);
 
   const redirectHomeWithMessage = (msg) => {
     setMessage(msg || "Erreur.");
@@ -385,6 +414,7 @@ export default function SignupWizard() {
           return;
         }
         setMessage(json.message || "Erreur.");
+        existingPasswordForm.reset({ password: "" });
         return;
       }
 
@@ -393,6 +423,7 @@ export default function SignupWizard() {
       setTimeout(() => router.push("/"), 2000);
     } catch (err) {
       setMessage("Erreur serveur.");
+      existingPasswordForm.reset({ password: "" });
     } finally {
       setIsLoading(false);
     }
@@ -571,13 +602,36 @@ export default function SignupWizard() {
                   >
                     Nom
                   </label>
-                  <input
-                    id="nom"
-                    type="text"
-                    {...identityForm.register("nom")}
-                    className="w-full border rounded px-3 py-2"
-                    disabled={isLoading}
-                    autoComplete="off"
+                  <Controller
+                    name="nom"
+                    control={identityForm.control}
+                    render={({ field }) => (
+                      <AutoComplete
+                        value={field.value}
+                        options={studentOptionsNom}
+                        onChange={(value) => {
+                          field.onChange(value);
+                        }}
+                        onSelect={(_, option) => {
+                          fillFromStudent(option?.student);
+                        }}
+                        filterOption={(inputValue, option) =>
+                          `${option?.label || ""}`
+                            .toLowerCase()
+                            .includes(`${inputValue || ""}`.toLowerCase())
+                        }
+                        disabled={isLoading}
+                        className="w-full"
+                      >
+                        <Input
+                          id="nom"
+                          type="text"
+                          className="w-full !border !rounded !px-3 !py-2"
+                          disabled={isLoading}
+                          autoComplete="off"
+                        />
+                      </AutoComplete>
+                    )}
                   />
                   {identityForm.formState.errors.nom && (
                     <p className="text-sm text-red-600">
@@ -593,13 +647,36 @@ export default function SignupWizard() {
                   >
                     Prénom
                   </label>
-                  <input
-                    id="prenom"
-                    type="text"
-                    {...identityForm.register("prenom")}
-                    className="w-full border rounded px-3 py-2"
-                    disabled={isLoading}
-                    autoComplete="off"
+                  <Controller
+                    name="prenom"
+                    control={identityForm.control}
+                    render={({ field }) => (
+                      <AutoComplete
+                        value={field.value}
+                        options={studentOptionsPrenom}
+                        onChange={(value) => {
+                          field.onChange(value);
+                        }}
+                        onSelect={(_, option) => {
+                          fillFromStudent(option?.student);
+                        }}
+                        filterOption={(inputValue, option) =>
+                          `${option?.label || ""}`
+                            .toLowerCase()
+                            .includes(`${inputValue || ""}`.toLowerCase())
+                        }
+                        disabled={isLoading}
+                        className="w-full"
+                      >
+                        <Input
+                          id="prenom"
+                          type="text"
+                          className="w-full !border !rounded !px-3 !py-2"
+                          disabled={isLoading}
+                          autoComplete="off"
+                        />
+                      </AutoComplete>
+                    )}
                   />
                   {identityForm.formState.errors.prenom && (
                     <p className="text-sm text-red-600">
@@ -607,28 +684,6 @@ export default function SignupWizard() {
                     </p>
                   )}
                 </div>
-
-                {Array.isArray(matchingStudents) &&
-                  matchingStudents.length > 0 && (
-                    <div className="rounded-lg border bg-gray-50 p-3">
-                      <p className="text-xs text-gray-600 mb-2">
-                        Suggestions (clique pour auto-compléter)
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {matchingStudents.map((st, idx) => (
-                          <button
-                            key={`${st?.nom || ""}-${st?.prenom || ""}-${idx}`}
-                            type="button"
-                            onClick={() => fillFromStudent(st)}
-                            className="px-2 py-1 text-xs rounded bg-white border hover:bg-gray-100"
-                            disabled={isLoading}
-                          >
-                            {st?.nom} {st?.prenom}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                 <div>
                   <label

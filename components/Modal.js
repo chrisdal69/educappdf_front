@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { Button, Modal } from "antd";
-import { useDispatch, useSelector } from "react-redux";
+import {  useSelector } from "react-redux";
 import Account from "./Account";
 import Login from "./Login";
+import AccountAdmin from "./admin/AccountAdmin";
 
 export default function App() {
   const [open, setOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const isAdmin = isAuthenticated && user?.role === "admin";
 
   const showModal = () => {
     setOpen(true);
@@ -36,11 +38,15 @@ export default function App() {
         onCancel={handleCancel}
         footer={null}
       >
-        {isAuthenticated ? (
+        {isAuthenticated && !isAdmin && (
           <Account close={handleOk} />
-        ) : (
+        ) }
+        {isAuthenticated && isAdmin && (
+          <AccountAdmin close={handleOk} />
+        ) }
+        {!isAuthenticated && (
           <Login close={handleOk} isOpen={open} />
-        )}
+        ) }
       </Modal>
     </>
   );

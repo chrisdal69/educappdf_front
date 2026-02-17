@@ -144,7 +144,7 @@ export default function ChangePassword() {
   }, [router]);
 
   const handleReturn = () => {
-    if (shouldReturnToIndexBis) {
+    if (0) {
       router.push("/indexbis");
       return;
     }

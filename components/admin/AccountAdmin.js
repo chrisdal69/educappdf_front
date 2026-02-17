@@ -2,8 +2,8 @@ import Link from "next/link";
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
-import { clearAuth } from "../reducers/authSlice";
-import { setCardsMaths } from "../reducers/cardsMathsSlice";
+import { clearAuth } from "../../reducers/authSlice";
+import { setCardsMaths } from "../../reducers/cardsMathsSlice";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -18,8 +18,8 @@ export default function Account(props) {
   const fromPath = (router.asPath || "/").split("?")[0];
   const changePasswordHref =
     fromPath === "/" ? "/changepassword?from=home" : "/changepassword";
-  const leaveClassHref =
-    fromPath === "/" ? "/leaveclass?from=home" : "/leaveclass";
+  const manageClass =
+    fromPath === "/" ? "/admin/manageclass?from=home" : "/admin/manageclass";
 
   const handleLogout = async () => {
     try {
@@ -48,6 +48,9 @@ export default function Account(props) {
     }
   };
 
+
+
+
   return (
     <div className="max-w-md mx-auto mt-10 rounded-xl shadow-lg p-6 bg-white text-center">
       <h2 className="text-2xl font-semibold mb-6">Mon compte</h2>
@@ -75,18 +78,11 @@ export default function Account(props) {
           Changer le mot de passe
         </Link>
         <Link
-          href={leaveClassHref}
+          href={manageClass}
           className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
           onClick={() => props.close()}
         >
-          Se désinscrire de la classe de {user?.publicname}
-        </Link>
-        <Link
-          href="/deleteaccount"
-          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-          onClick={() => props.close()}
-        >
-          Supprimer mon compte MathsApp
+          Gérer ma classe
         </Link>
       </div>
     </div>

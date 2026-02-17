@@ -12,6 +12,7 @@ import Link from "next/link";
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
+const CODE_TTL_MS = 7 * 60 * 1000;
 
 const nameRegex = /^[\p{L}\s_-]+$/u;
 const teacherCodeRegex = /^[A-Za-z0-9]{4}$/;
@@ -74,6 +75,8 @@ export default function SignupWizard() {
   const [emailExists, setEmailExists] = useState(false);
 
   const [verificationCode, setVerificationCode] = useState("");
+  const [verificationExpiresAt, setVerificationExpiresAt] = useState(null);
+  const [remainingMs, setRemainingMs] = useState(0);
 
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -130,6 +133,37 @@ export default function SignupWizard() {
     });
     setPasswordStrength(zxcvbn(watchedPassword).score);
   }, [watchedPassword]);
+
+  useEffect(() => {
+    if (step !== 4 || !verificationExpiresAt) return;
+
+    const tick = () => {
+      setRemainingMs(Math.max(0, verificationExpiresAt - Date.now()));
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [step, verificationExpiresAt]);
+
+  const remainingLabel = useMemo(() => {
+    const totalSeconds = Math.floor((remainingMs || 0) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")} : ${String(seconds).padStart(
+      2,
+      "0",
+    )}`;
+  }, [remainingMs]);
+
+  useEffect(() => {
+    if (step !== 4 || !verificationExpiresAt) return;
+    if (remainingMs > 0) return;
+
+    setMessage("Opération d'inscription annulée");
+    const timeout = setTimeout(() => router.push("/"), 1500);
+    return () => clearTimeout(timeout);
+  }, [step, verificationExpiresAt, remainingMs, router]);
 
   const renderPasswordRules = () => {
     const rules = [
@@ -315,6 +349,7 @@ export default function SignupWizard() {
 
       setMessage("Un code a été envoyé à votre email.");
       setVerificationCode("");
+      setVerificationExpiresAt(Date.now() + CODE_TTL_MS);
       setStep(4);
     } catch (err) {
       setMessage("Erreur serveur.");
@@ -423,6 +458,7 @@ export default function SignupWizard() {
 
       setMessage("Nouveau code envoyé !");
       setVerificationCode("");
+      setVerificationExpiresAt(Date.now() + CODE_TTL_MS);
     } catch (err) {
       setMessage("Erreur serveur.");
     } finally {
@@ -840,6 +876,9 @@ export default function SignupWizard() {
                 className="border rounded px-4 py-2 text-center tracking-widest w-40"
                 disabled={isLoading}
               />
+              <p className="text-sm text-gray-600 mt-3">
+                Temps restant pour la saisie : {remainingLabel}
+              </p>
               <div className="mt-4 space-y-2">
                 <button
                   type="button"

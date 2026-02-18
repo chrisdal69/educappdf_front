@@ -197,7 +197,7 @@ export default function ManageClass() {
       className="w-full min-h-screen flex items-center justify-center p-4"
       style={{ backgroundColor: "#b8b8b6" }}
     >
-      <div className="w-full max-w-2xl bg-white shadow-lg rounded-xl p-6 relative flex flex-col">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white shadow-lg rounded-xl p-6 relative flex flex-col min-h-0">
         <h2 className="text-2xl font-semibold text-center mb-6">
           Gérer ma classe
         </h2>
@@ -209,7 +209,7 @@ export default function ManageClass() {
         )}
 
         <div className="text-center pb-4">
-          Liste des élèves inscrits par l’admin à ce cours
+          Liste des élèves inscrits dans cette classe
         </div>
 
         <div className="flex justify-end gap-2 pb-4">
@@ -372,112 +372,116 @@ export default function ManageClass() {
           </Popover>
         </div>
 
-        {loading && (
-          <div className="flex flex-col items-center py-6">
-            <ClimbingBoxLoader color="#6C6C6C" size={12} />
-          </div>
-        )}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {loading && (
+            <div className="flex flex-col items-center py-6">
+              <ClimbingBoxLoader color="#6C6C6C" size={12} />
+            </div>
+          )}
 
-        {!loading && errorMessage && (
-          <p className="text-center text-red-500 text-sm pb-3">{errorMessage}</p>
-        )}
+          {!loading && errorMessage && (
+            <p className="text-center text-red-500 text-sm pb-3">{errorMessage}</p>
+          )}
 
-        {!loading && !errorMessage && (
-          <ul className="list-none m-0 p-0 divide-y divide-gray-100">
-            {students.map((st, idx) => {
-              const key = st?.studentId ? String(st.studentId) : String(idx);
-              const email = st?.email ? String(st.email) : "—";
-              const displayName = `${st?.nom || ""} ${st?.prenom || ""}`.trim();
-              const isDeleteOpen = deleteOpenKey === key;
-              const isDeleting = deleteLoadingKey === key;
+          {!loading && !errorMessage && (
+            <ul className="list-none m-0 p-0 divide-y divide-gray-100">
+              {students.map((st, idx) => {
+                const key = st?.studentId ? String(st.studentId) : String(idx);
+                const email = st?.email ? String(st.email) : "—";
+                const displayName = `${st?.nom || ""} ${st?.prenom || ""}`.trim();
+                const isDeleteOpen = deleteOpenKey === key;
+                const isDeleting = deleteLoadingKey === key;
 
-              return (
-                <li
-                  key={key}
-                  className={`py-3 px-2 ${idx % 2 === 1 ? "bg-gray-100" : ""}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium text-gray-800">
-                        {displayName || "—"}
+                return (
+                  <li
+                    key={key}
+                    className={`py-3 px-2 ${idx % 2 === 1 ? "bg-gray-100" : ""}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium text-gray-800">
+                          {displayName || "—"}
+                        </div>
+                        <div className="truncate text-sm text-gray-600">
+                          {email}
+                        </div>
                       </div>
-                      <div className="truncate text-sm text-gray-600">{email}</div>
-                    </div>
 
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Popover
-                        trigger="click"
-                        open={isDeleteOpen}
-                        onOpenChange={(visible) => {
-                          if (visible) {
-                            setDeleteOpenKey(key);
-                            setDeleteConfirmText("");
-                          } else if (isDeleteOpen) {
-                            setDeleteOpenKey("");
-                            setDeleteConfirmText("");
-                          }
-                        }}
-                        content={
-                          <div className="flex w-72 flex-col gap-2">
-                            <div className="text-sm text-gray-800">
-                              Pour confirmer, écris{" "}
-                              <span className="font-semibold">{CONFIRM_TEXT}</span>.
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Popover
+                          trigger="click"
+                          open={isDeleteOpen}
+                          onOpenChange={(visible) => {
+                            if (visible) {
+                              setDeleteOpenKey(key);
+                              setDeleteConfirmText("");
+                            } else if (isDeleteOpen) {
+                              setDeleteOpenKey("");
+                              setDeleteConfirmText("");
+                            }
+                          }}
+                          content={
+                            <div className="flex w-72 flex-col gap-2">
+                              <div className="text-sm text-gray-800">
+                                Pour confirmer, écris{" "}
+                                <span className="font-semibold">{CONFIRM_TEXT}</span>.
+                              </div>
+                              <Input
+                                value={deleteConfirmText}
+                                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                placeholder={CONFIRM_TEXT}
+                                maxLength={40}
+                                disabled={isDeleting}
+                              />
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="small"
+                                  onClick={() => {
+                                    setDeleteOpenKey("");
+                                    setDeleteConfirmText("");
+                                  }}
+                                  disabled={isDeleting}
+                                >
+                                  Annuler
+                                </Button>
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  danger
+                                  loading={isDeleting}
+                                  disabled={deleteConfirmText !== CONFIRM_TEXT}
+                                  onClick={() => handleUnsubscribe(st)}
+                                >
+                                  Désinscrire
+                                </Button>
+                              </div>
                             </div>
-                            <Input
-                              value={deleteConfirmText}
-                              onChange={(e) => setDeleteConfirmText(e.target.value)}
-                              placeholder={CONFIRM_TEXT}
-                              maxLength={40}
+                          }
+                        >
+                          <Tooltip title="Désinscrire" mouseEnterDelay={0.3}>
+                            <Button
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                              loading={isDeleting}
                               disabled={isDeleting}
                             />
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                size="small"
-                                onClick={() => {
-                                  setDeleteOpenKey("");
-                                  setDeleteConfirmText("");
-                                }}
-                                disabled={isDeleting}
-                              >
-                                Annuler
-                              </Button>
-                              <Button
-                                size="small"
-                                type="primary"
-                                danger
-                                loading={isDeleting}
-                                disabled={deleteConfirmText !== CONFIRM_TEXT}
-                                onClick={() => handleUnsubscribe(st)}
-                              >
-                                Désinscrire
-                              </Button>
-                            </div>
-                          </div>
-                        }
-                      >
-                        <Tooltip title="Désinscrire" mouseEnterDelay={0.3}>
-                          <Button
-                            size="small"
-                            danger
-                            icon={<DeleteOutlined />}
-                            loading={isDeleting}
-                            disabled={isDeleting}
-                          />
-                        </Tooltip>
-                      </Popover>
+                          </Tooltip>
+                        </Popover>
+                      </div>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
+                  </li>
+                );
+              })}
 
-            {!students.length && (
-              <li className="py-4 text-center text-gray-600 text-sm">
-                Aucun élève.
-              </li>
-            )}
-          </ul>
-        )}
+              {!students.length && (
+                <li className="py-4 text-center text-gray-600 text-sm">
+                  Aucun élève.
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
 
         <button
           type="button"

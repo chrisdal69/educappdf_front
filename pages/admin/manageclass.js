@@ -2,8 +2,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
-import { Button, Input, Popover } from "antd";
-import { DeleteOutlined } from "@ant-design/icons";
+import { Button, Input, Popover, Upload } from "antd";
+import { DeleteOutlined, UploadOutlined } from "@ant-design/icons";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import Tooltip from "../../components/admin/card/TooltipClickClose";
 import { handleAuthError, throwIfUnauthorized } from "../../utils/auth";
@@ -28,6 +28,11 @@ export default function ManageClass() {
   const [addNom, setAddNom] = useState("");
   const [addPrenom, setAddPrenom] = useState("");
   const [addLoading, setAddLoading] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkFileList, setBulkFileList] = useState([]);
+  const [bulkUploadKey, setBulkUploadKey] = useState(0);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [deleteOpenKey, setDeleteOpenKey] = useState("");
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteLoadingKey, setDeleteLoadingKey] = useState("");
@@ -117,6 +122,43 @@ export default function ManageClass() {
     }
   };
 
+  const handleBulkAddStudents = async () => {
+    if (!bulkFile) return;
+
+    setBulkLoading(true);
+    setErrorMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", bulkFile);
+
+      const res = await fetch(
+        `${urlFetch}/users/admin/class/${classId}/students/upload`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      );
+      throwIfUnauthorized(res);
+      const payload = await res.json();
+      if (!res.ok) {
+        setErrorMessage(payload?.message || "Erreur lors de l'inscription.");
+        return;
+      }
+
+      setBulkOpen(false);
+      setBulkFile(null);
+      setBulkFileList([]);
+      setBulkUploadKey((prev) => prev + 1);
+      await fetchStudents();
+    } catch (err) {
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) setErrorMessage("Erreur serveur.");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const handleUnsubscribe = async (student) => {
     const studentKey = student?.studentId ? String(student.studentId) : "";
     if (!studentKey) return;
@@ -170,7 +212,7 @@ export default function ManageClass() {
           Liste des élèves inscrits par l’admin à ce cours
         </div>
 
-        <div className="flex justify-end pb-4">
+        <div className="flex justify-end gap-2 pb-4">
           <Popover
             trigger="click"
             open={addOpen}
@@ -179,6 +221,10 @@ export default function ManageClass() {
               if (visible) {
                 setDeleteOpenKey("");
                 setDeleteConfirmText("");
+                setBulkOpen(false);
+                setBulkFile(null);
+                setBulkFileList([]);
+                setBulkUploadKey((prev) => prev + 1);
               }
             }}
             content={
@@ -222,7 +268,107 @@ export default function ManageClass() {
               </div>
             }
           >
-            <Button type="primary">Ajouter un élève</Button>
+            <Tooltip
+              title="Ajouter un élève (saisie manuelle)"
+              mouseEnterDelay={0.3}
+            >
+              <Button type="primary">Ajouter un élève</Button>
+            </Tooltip>
+          </Popover>
+
+          <Popover
+            trigger="click"
+            open={bulkOpen}
+            onOpenChange={(visible) => {
+              setBulkOpen(visible);
+              if (visible) {
+                setDeleteOpenKey("");
+                setDeleteConfirmText("");
+                setAddOpen(false);
+                setAddNom("");
+                setAddPrenom("");
+                setBulkFile(null);
+                setBulkFileList([]);
+                setBulkUploadKey((prev) => prev + 1);
+              } else {
+                setBulkFile(null);
+                setBulkFileList([]);
+                setBulkUploadKey((prev) => prev + 1);
+              }
+            }}
+            content={
+              <div className="flex w-80 flex-col gap-2">
+                <Upload
+                  key={bulkUploadKey}
+                  accept=".csv,.txt"
+                  maxCount={1}
+                  beforeUpload={() => false}
+                  fileList={bulkFileList}
+                  showUploadList={false}
+                  onChange={(info) => {
+                    const nextList = Array.isArray(info?.fileList)
+                      ? info.fileList.slice(-1)
+                      : [];
+                    setBulkFileList(nextList);
+                    const nextFile = nextList?.[0]?.originFileObj || null;
+                    setBulkFile(nextFile);
+                  }}
+                  onRemove={() => {
+                    setBulkFile(null);
+                    setBulkFileList([]);
+                    setBulkUploadKey((prev) => prev + 1);
+                  }}
+                >
+                  <Tooltip
+                    title="Choisir un fichier (.csv ou .txt)"
+                    mouseEnterDelay={0.3}
+                  >
+                    <Button icon={<UploadOutlined />} disabled={bulkLoading}>
+                      Choisir un fichier
+                    </Button>
+                  </Tooltip>
+                </Upload>
+                {bulkFile?.name && (
+                  <div className="text-xs text-gray-700 truncate">
+                    Fichier : {bulkFile.name}
+                  </div>
+                )}
+                <div className="text-xs text-gray-600">
+                  Format attendu (une ligne par élève) : <br />
+                  nom,prenom
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setBulkOpen(false);
+                      setBulkFile(null);
+                      setBulkFileList([]);
+                      setBulkUploadKey((prev) => prev + 1);
+                    }}
+                    disabled={bulkLoading}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    size="small"
+                    type="primary"
+                    loading={bulkLoading}
+                    disabled={!bulkFile}
+                    onClick={handleBulkAddStudents}
+                  >
+                    Inscrire
+                  </Button>
+                </div>
+              </div>
+            }
+          >
+            <Tooltip
+              title="Ajouter plusieurs élèves via fichier (.csv/.txt)"
+              mouseEnterDelay={0.3}
+            >
+              <Button>Ajouter des élèves</Button>
+            </Tooltip>
           </Popover>
         </div>
 

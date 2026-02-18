@@ -599,7 +599,10 @@ export default function SignupWizard() {
                     type="text"
                     maxLength={4}
                     {...teacherForm.register("code")}
-                    className="w-full border rounded px-3 py-2 tracking-widest text-center uppercase"
+                    className="w-full border rounded px-3 py-2 tracking-widest text-center"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     disabled={isLoading}
                   />
                   {teacherForm.formState.errors.code && (

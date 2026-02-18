@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
-import { Button, Input, Popover, Upload } from "antd";
+import { Button, Input, Popover, Radio, Upload } from "antd";
 import { DeleteOutlined, UploadOutlined } from "@ant-design/icons";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import Tooltip from "../../components/admin/card/TooltipClickClose";
@@ -24,6 +24,12 @@ export default function ManageClass() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [classCode, setClassCode] = useState("");
+  const [classCodeExpires, setClassCodeExpires] = useState(null);
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [regenDuration, setRegenDuration] = useState("");
+  const [regenLoading, setRegenLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addNom, setAddNom] = useState("");
   const [addPrenom, setAddPrenom] = useState("");
@@ -66,7 +72,7 @@ export default function ManageClass() {
     try {
       const res = await fetch(
         `${urlFetch}/users/admin/class/${classId}/students`,
-        { credentials: "include" }
+        { credentials: "include" },
       );
       throwIfUnauthorized(res);
       const payload = await res.json();
@@ -87,6 +93,77 @@ export default function ManageClass() {
     fetchStudents();
   }, [fetchStudents]);
 
+  const fetchClassCode = useCallback(async () => {
+    if (!canManage) return;
+    setCodeLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`${urlFetch}/users/admin/class/${classId}/code`, {
+        credentials: "include",
+      });
+      throwIfUnauthorized(res);
+      const payload = await res.json();
+      if (!res.ok) {
+        setErrorMessage(payload?.message || "Erreur lors du chargement du code.");
+        return;
+      }
+      setClassCode(String(payload?.code || ""));
+      setClassCodeExpires(payload?.codeExpires || null);
+    } catch (err) {
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) setErrorMessage("Erreur serveur.");
+    } finally {
+      setCodeLoading(false);
+    }
+  }, [canManage, classId, dispatch, router]);
+
+  useEffect(() => {
+    fetchClassCode();
+  }, [fetchClassCode]);
+
+  const formatFrDate = (value) => {
+    if (!value) return "";
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(date.getFullYear());
+    return `${dd}-${mm}-${yyyy}`;
+  };
+
+  const handleRegenerateCode = async () => {
+    if (!regenDuration) return;
+
+    setRegenLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `${urlFetch}/users/admin/class/${classId}/code/regenerate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ duration: regenDuration }),
+        },
+      );
+      throwIfUnauthorized(res);
+      const payload = await res.json();
+      if (!res.ok) {
+        setErrorMessage(payload?.message || "Erreur lors de la régénération.");
+        return;
+      }
+      setClassCode(String(payload?.code || ""));
+      setClassCodeExpires(payload?.codeExpires || null);
+      setRegenOpen(false);
+      setRegenDuration("");
+    } catch (err) {
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) setErrorMessage("Erreur serveur.");
+    } finally {
+      setRegenLoading(false);
+    }
+  };
+
   const handleAddStudent = async () => {
     const trimmedNom = String(addNom || "").trim();
     const trimmedPrenom = String(addPrenom || "").trim();
@@ -102,7 +179,7 @@ export default function ManageClass() {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ nom: trimmedNom, prenom: trimmedPrenom }),
-        }
+        },
       );
       throwIfUnauthorized(res);
       const payload = await res.json();
@@ -137,7 +214,7 @@ export default function ManageClass() {
           method: "POST",
           credentials: "include",
           body: formData,
-        }
+        },
       );
       throwIfUnauthorized(res);
       const payload = await res.json();
@@ -171,16 +248,18 @@ export default function ManageClass() {
         {
           method: "DELETE",
           credentials: "include",
-        }
+        },
       );
       throwIfUnauthorized(res);
       const payload = await res.json();
       if (!res.ok) {
-        setErrorMessage(payload?.message || "Erreur lors de la désinscription.");
+        setErrorMessage(
+          payload?.message || "Erreur lors de la désinscription.",
+        );
         return;
       }
       setStudents((prev) =>
-        prev.filter((st) => String(st?.studentId) !== studentKey)
+        prev.filter((st) => String(st?.studentId) !== studentKey),
       );
       setDeleteOpenKey("");
       setDeleteConfirmText("");
@@ -199,14 +278,84 @@ export default function ManageClass() {
     >
       <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white shadow-lg rounded-xl p-6 relative flex flex-col min-h-0">
         <h2 className="text-2xl font-semibold text-center mb-6">
-          Gérer ma classe
+          Gérer la classe de {className}
         </h2>
+        <div className="pb-4 px-[10%]">
+          <div>
+            <p className="py-1">
+              Code d'inscription :{" "}
+              <span className="font-mono">
+                {codeLoading ? "…" : classCode || "—"}
+              </span>
+            </p>
+            <p className="py-1">
+              Expire le :{" "}
+              <span className="font-mono">
+                {codeLoading ? "…" : formatFrDate(classCodeExpires) || "—"}
+              </span>
+            </p>
 
-        {className && (
-          <p className="text-center text-gray-600 pb-4">
-            Classe : <span className="font-medium">{className}</span>
-          </p>
-        )}
+            <Popover
+              trigger="click"
+              open={regenOpen}
+              onOpenChange={(visible) => {
+                setRegenOpen(visible);
+                if (visible) {
+                  setRegenDuration("");
+                  setAddOpen(false);
+                  setBulkOpen(false);
+                  setBulkFile(null);
+                  setBulkFileList([]);
+                  setBulkUploadKey((prev) => prev + 1);
+                  setDeleteOpenKey("");
+                  setDeleteConfirmText("");
+                }
+              }}
+              content={
+                <div className="flex w-72 flex-col gap-2">
+                  <Radio.Group
+                    onChange={(e) => setRegenDuration(e.target.value)}
+                    value={regenDuration}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <Radio value="3d">3 jours</Radio>
+                      <Radio value="1w">1 semaine</Radio>
+                      <Radio value="2w">2 semaines</Radio>
+                    </div>
+                  </Radio.Group>
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setRegenOpen(false);
+                        setRegenDuration("");
+                      }}
+                      disabled={regenLoading}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      size="small"
+                      type="primary"
+                      loading={regenLoading}
+                      disabled={!regenDuration}
+                      onClick={handleRegenerateCode}
+                    >
+                      Valider
+                    </Button>
+                  </div>
+                </div>
+              }
+            >
+              <Tooltip title="Régénérer un code d’inscription" mouseEnterDelay={0.3}>
+                <Button className="my-1" type="primary">
+                  Régénérer un code
+                </Button>
+              </Tooltip>
+            </Popover>
+          </div>
+        </div>
 
         <div className="text-center pb-4">
           Liste des élèves inscrits dans cette classe
@@ -259,7 +408,10 @@ export default function ManageClass() {
                     size="small"
                     type="primary"
                     loading={addLoading}
-                    disabled={!String(addNom || "").trim() || !String(addPrenom || "").trim()}
+                    disabled={
+                      !String(addNom || "").trim() ||
+                      !String(addPrenom || "").trim()
+                    }
                     onClick={handleAddStudent}
                   >
                     Inscrire
@@ -380,7 +532,9 @@ export default function ManageClass() {
           )}
 
           {!loading && errorMessage && (
-            <p className="text-center text-red-500 text-sm pb-3">{errorMessage}</p>
+            <p className="text-center text-red-500 text-sm pb-3">
+              {errorMessage}
+            </p>
           )}
 
           {!loading && !errorMessage && (
@@ -388,7 +542,8 @@ export default function ManageClass() {
               {students.map((st, idx) => {
                 const key = st?.studentId ? String(st.studentId) : String(idx);
                 const email = st?.email ? String(st.email) : "—";
-                const displayName = `${st?.nom || ""} ${st?.prenom || ""}`.trim();
+                const displayName =
+                  `${st?.nom || ""} ${st?.prenom || ""}`.trim();
                 const isDeleteOpen = deleteOpenKey === key;
                 const isDeleting = deleteLoadingKey === key;
 
@@ -424,11 +579,16 @@ export default function ManageClass() {
                             <div className="flex w-72 flex-col gap-2">
                               <div className="text-sm text-gray-800">
                                 Pour confirmer, écris{" "}
-                                <span className="font-semibold">{CONFIRM_TEXT}</span>.
+                                <span className="font-semibold">
+                                  {CONFIRM_TEXT}
+                                </span>
+                                .
                               </div>
                               <Input
                                 value={deleteConfirmText}
-                                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                onChange={(e) =>
+                                  setDeleteConfirmText(e.target.value)
+                                }
                                 placeholder={CONFIRM_TEXT}
                                 maxLength={40}
                                 disabled={isDeleting}

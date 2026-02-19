@@ -212,7 +212,7 @@ function Anim1({ onLoginTransitionComplete }) {
         .page {
           min-height: 100vh;
           position: relative;
-          background-color: #f6f4ef;
+          background-color: #8e9d8b;
           color: #1a1a1a;
           overflow: hidden;
         }
@@ -242,7 +242,7 @@ function Anim1({ onLoginTransitionComplete }) {
         .veil {
           position: absolute;
           inset: 0;
-          background: rgba(25, 30, 36, 0.28);
+          background: rgba(25, 30, 36, 0);
           opacity: 0;
           z-index: 2;
           animation: veil-in var(--veil-duration) ease-out forwards;

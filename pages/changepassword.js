@@ -180,8 +180,7 @@ export default function ChangePassword() {
 
   return (
     <div
-      className="w-full min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: "#b8b8b6" }}
+      className="w-full min-h-screen flex items-center justify-center p-4 bg-bg"
     >
       <div
         className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative"
@@ -265,7 +264,7 @@ export default function ChangePassword() {
         <button
           type="submit"
           disabled={!isValid || busy}
-          className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+            className="w-full py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
         >
           {isLoading ? "Mise à jour..." : "Changer le mot de passe"}
         </button>

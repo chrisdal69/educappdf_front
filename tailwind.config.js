@@ -8,10 +8,12 @@ module.exports = {
     extend: {
       colors: {
         bg: 'var(--color-bg)',
+        bg2: 'var(--color-bg2)',
         surface: 'var(--color-surface)',
         primary: 'var(--color-primary)',
         text: 'var(--color-text)',
         muted: 'var(--color-muted)',
+        bouton: 'var(--color-bouton)',
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],

@@ -23,10 +23,12 @@ const store = configureStore({
 const cssVars = `
 :root {
   --color-bg: ${themeTokens.colors.bg};
+  --color-bg2: ${themeTokens.colors.bg2};
   --color-surface: ${themeTokens.colors.surface};
   --color-primary: ${themeTokens.colors.primary};
   --color-text: ${themeTokens.colors.text};
   --color-muted: ${themeTokens.colors.muted};
+  --color-bouton: ${themeTokens.colors.bouton};
   --radius-lg: ${themeTokens.radius.lg};
 }
 `;

@@ -215,7 +215,7 @@ export default function Login(props) {
 
   return (
     <div
-      className="max-w-md mx-auto mt-10 rounded-xl shadow-lg p-6 bg-gray-100 relative"
+      className="max-w-md mx-auto mt-10 rounded-xl shadow-lg p-6 bg-gray-50 relative"
       aria-busy={isSubmitting || isValidatingClass}
     >
       {!multipleClasses && (
@@ -281,7 +281,7 @@ export default function Login(props) {
                     className={`text-sm ${
                       busy
                         ? "text-gray-400 pointer-events-none"
-                        : "text-blue-600 hover:underline"
+                        : "text-primary hover:underline"
                     }`}
                     aria-disabled={busy}
                     onClick={(e) => {
@@ -302,7 +302,7 @@ export default function Login(props) {
             <button
               type="submit"
               disabled={!isValid || busy}
-              className="w-full py-3 text-lg rounded-lg bg-gray-900 text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
+              className="w-full py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
             >
               {isSubmitting ? "Connexion..  ." : "Se loguer"}
             </button>
@@ -315,7 +315,7 @@ export default function Login(props) {
               className={`text-sm font-medium ${
                 busy
                   ? "text-gray-400 pointer-events-none"
-                  : "text-blue-600 hover:underline"
+                  : "text-primary hover:underline"
               }`}
               aria-disabled={busy}
               onClick={(e) => {
@@ -360,6 +360,7 @@ export default function Login(props) {
               >
                 <input
                   type="checkbox"
+                  className="h-4 w-4 accent-primary disabled:accent-muted"
                   checked={selectedClassId === cl.id}
                   onChange={() =>
                     setSelectedClassId((prev) => (prev === cl.id ? "" : cl.id))
@@ -375,7 +376,7 @@ export default function Login(props) {
             type="button"
             onClick={handleClassValidation}
             disabled={!selectedClassId || isValidatingClass}
-            className="w-full py-3 text-lg rounded-lg bg-gray-900 text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
+            className="w-full py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
           >
             {isValidatingClass ? "Validation..." : "Valider"}
           </button>

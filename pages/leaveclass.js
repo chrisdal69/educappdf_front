@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
@@ -19,10 +19,18 @@ export default function LeaveClass() {
   const [confirmText, setConfirmText] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCardVisible, setIsCardVisible] = useState(false);
+  const [isVeilVisible, setIsVeilVisible] = useState(false);
 
   const normalizedConfirm = confirmText.trim().toUpperCase();
   const canLeave = normalizedConfirm === EXPECTED_PHRASE;
   const busy = isLoading;
+
+  useEffect(() => {
+    setIsCardVisible(true);
+    const veilTimeout = setTimeout(() => setIsVeilVisible(true), 1000);
+    return () => clearTimeout(veilTimeout);
+  }, []);
 
   const handleReturn = () => {
     if (shouldReturnToIndexBis) {
@@ -79,11 +87,21 @@ export default function LeaveClass() {
 
   return (
     <div
-      className="w-full min-h-screen flex items-center justify-center p-4"
+      className="relative w-full min-h-screen flex items-center justify-center p-4 overflow-hidden"
       style={{ backgroundColor: "#b8b8b6" }}
     >
       <div
-        className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative"
+        aria-hidden="true"
+        className={`absolute inset-0 z-10 bg-black/25 backdrop-blur-sm transition-opacity duration-300 ${
+          isVeilVisible ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <div
+        className={`relative z-20 w-full max-w-md bg-white shadow-lg rounded-xl p-6 transform-gpu origin-top-right transition-transform transition-opacity duration-1000 ease-out motion-reduce:transition-none motion-reduce:transform-none ${
+          isCardVisible
+            ? "scale-100 opacity-100"
+            : "scale-0 opacity-0 pointer-events-none"
+        }`}
         aria-busy={busy}
       >
         <h2 className="text-2xl font-semibold text-center mb-6">

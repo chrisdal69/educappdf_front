@@ -41,6 +41,8 @@ export default function ChangePassword() {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCardVisible, setIsCardVisible] = useState(false);
+  const [isVeilVisible, setIsVeilVisible] = useState(false);
 
   // 🔹 Indicateurs de robustesse
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -77,6 +79,12 @@ export default function ChangePassword() {
     });
     setPasswordStrength(zxcvbn(newPassword).score);
   }, [newPassword]);
+
+  useEffect(() => {
+    setIsCardVisible(true);
+    const veilTimeout = setTimeout(() => setIsVeilVisible(true), 1000);
+    return () => clearTimeout(veilTimeout);
+  }, []);
 
   // ✅ Labels et couleurs pour la jauge
   const getStrengthLabel = (score) => {
@@ -180,17 +188,27 @@ export default function ChangePassword() {
 
   return (
     <div
-      className="w-full min-h-screen flex items-center justify-center p-4 bg-bg"
+      className="relative w-full min-h-screen flex items-center justify-center p-4 bg-bg overflow-hidden"
     >
       <div
-        className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative"
+        aria-hidden="true"
+        className={`absolute inset-0 z-10 bg-black/25 backdrop-blur-sm transition-opacity duration-300 ${
+          isVeilVisible ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <div
+        className={`relative z-20 w-full max-w-md bg-white shadow-2xl rounded-xl p-6 transform-gpu origin-top-right transition-transform transition-opacity duration-1000 ease-out motion-reduce:transition-none motion-reduce:transform-none ${
+          isCardVisible
+            ? "scale-100 opacity-100"
+            : "scale-0 opacity-0 pointer-events-none"
+        }`}
         aria-busy={busy}
       >
       <h2 className="text-2xl font-semibold text-center mb-6">
         Changer le mot de passe
       </h2>
 
-      {message && <p className="text-blue-600 text-center mb-4">{message}</p>}
+      {message && <p className="text-primary text-center mb-4">{message}</p>}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Nouveau mot de passe */}
@@ -264,7 +282,7 @@ export default function ChangePassword() {
         <button
           type="submit"
           disabled={!isValid || busy}
-            className=" w-full py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
+            className=" w-full mt-2 py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
         >
           {isLoading ? "Mise à jour..." : "Changer le mot de passe"}
         </button>

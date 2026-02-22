@@ -57,7 +57,7 @@ export default function Account(props) {
         </h2>
       )}
       {user && <h2 className="text-2xl mb-6">{user.publicname}</h2>}
-      {message && <p className="text-blue-600 mb-4">{message}</p>}
+      {message && <p className="text-primary mb-4">{message}</p>}
 
       <button
         onClick={handleLogout}

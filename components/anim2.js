@@ -247,7 +247,7 @@ function Anim2({ initialPositions, skipIntro = false }) {
         <div className="hero" aria-hidden="true">
           <Image
             src={bgSrc}
-            alt="Fond d'Ｄran"
+            alt="Fond d'd'écran"
             fill
             sizes="100vw"
             className="heroImage"

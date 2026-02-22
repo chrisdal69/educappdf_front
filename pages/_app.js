@@ -24,6 +24,7 @@ const cssVars = `
 :root {
   --color-bg: ${themeTokens.colors.bg};
   --color-bg2: ${themeTokens.colors.bg2};
+  --color-bg3: ${themeTokens.colors.bg3};
   --color-surface: ${themeTokens.colors.surface};
   --color-primary: ${themeTokens.colors.primary};
   --color-text: ${themeTokens.colors.text};

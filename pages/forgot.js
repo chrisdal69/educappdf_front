@@ -279,10 +279,10 @@ export default function ForgotWizard() {
   return (
     <div
       className="w-full min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: "#b8b8b6" }}
+      style={{ backgroundColor: "bg3" }}
     >
       <div
-        className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative"
+        className="w-full max-w-md bg-white shadow-2xl rounded-xl p-6 relative"
         aria-busy={isLoading || isSubmitting}
       >
       {/* Barre de progression */}
@@ -292,7 +292,7 @@ export default function ForgotWizard() {
             <div
               className={`mx-auto w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold ${
                 step >= idx + 1
-                  ? "bg-blue-600 text-white"
+                  ? "bg-primary text-white"
                   : "bg-gray-300 text-gray-600"
               }`}
             >
@@ -304,7 +304,7 @@ export default function ForgotWizard() {
       </div>
 
       {message && (
-        <p className="text-center text-sm text-blue-600 mb-4">{message}</p>
+        <p className="text-center text-sm text-primary mb-4">{message}</p>
       )}
 
       <AnimatePresence mode="wait">
@@ -336,7 +336,7 @@ export default function ForgotWizard() {
             <button
               type="submit"
               disabled={!isValid || busy}
-              className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+              className="w-full py-3 my-3 bg-bouton rounded-lg text-white text-lg hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
             >
               {isLoading ? "Envoi..." : "Envoyer le code"}
             </button>
@@ -344,7 +344,7 @@ export default function ForgotWizard() {
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-primary hover:underline"
               >
                 Retour  ?
               </button>
@@ -363,7 +363,7 @@ export default function ForgotWizard() {
             exit={{ opacity: 0, x: 50 }}
           >
             <h2 className="text-xl font-semibold mb-3">Saisir le code</h2>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-gray-600 mb-5">
               Code envoyé à <strong>{email}</strong>
             </p>
             <input
@@ -374,7 +374,7 @@ export default function ForgotWizard() {
               className="border rounded px-4 py-2 text-center tracking-widest w-40 mx-auto"
               disabled={busy}
             />
-            <p className="text-sm text-gray-600 mt-3">
+            <p className="text-sm text-gray-600 ">
               Temps restant pour la saisie : {remainingLabel}
             </p>
             {errors.code && (
@@ -385,7 +385,7 @@ export default function ForgotWizard() {
               <button
                 type="submit"
                 disabled={!isValid || busy || (codeExpiresAt && remainingMs <= 0)}
-                className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                className="w-full mb-5 py-3 bg-bouton rounded-xl text-white text-lg hover:bg-slate-300 hover:text-gray-800"
               >
                 Valider le code
               </button>
@@ -393,7 +393,7 @@ export default function ForgotWizard() {
                 type="button"
                 onClick={handleResendCode}
                 disabled={busy}
-                className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                className="w-full py-3 mb-5 text-lg bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300"
               >
                 Renvoyer le code
               </button>
@@ -407,7 +407,7 @@ export default function ForgotWizard() {
                   setRemainingMs(0);
                 }}
                 disabled={busy}
-                className="w-full py-2 flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 mt-2"
+                className="w-full py-2 text-lg flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 mt-2"
               >
                 <ArrowLeft size={16} /> Retour
               </button>
@@ -488,7 +488,7 @@ export default function ForgotWizard() {
             <button
               type="submit"
               disabled={!isValid || busy}
-              className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300"
+              className="w-full py-3 my-3 bg-bouton text-lg text-white rounded-xl hover:bg-slate-300 hovet-text-gray-800 disabled:bg-gray-300"
             >
               {isLoading ? "Mise à jour..." : "Changer le mot de passe"}
             </button>
@@ -501,7 +501,7 @@ export default function ForgotWizard() {
                 setMessage("");
                 resetField("code");
               }}
-              className="w-full py-2 flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 mt-2"
+              className="w-full py-3 flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 mt-3"
             >
               <ArrowLeft size={16} /> Retour
             </button>

@@ -646,7 +646,7 @@ export default function ManageClass() {
         <button
           type="button"
           onClick={handleReturn}
-          className="text-blue-600 hover:underline "
+          className="text-primary hover:underline mt-4 "
         >
           Retour à la page précédente
         </button>

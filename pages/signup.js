@@ -547,16 +547,16 @@ export default function SignupWizard() {
   return (
     <div
       className="w-full min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: "#b8b8b6" }}
+      style={{ backgroundColor: "bg3" }}
     >
-      <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 relative">
+      <div className="w-full max-w-md bg-white shadow-2xl rounded-xl p-6 relative">
         <div className="flex justify-between mb-6">
           {steps.map((label, idx) => (
             <div key={idx} className="flex-1 text-center">
               <div
                 className={`mx-auto w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold ${
                   step >= idx + 1
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-white"
                     : "bg-gray-300 text-gray-600"
                 }`}
               >
@@ -614,14 +614,14 @@ export default function SignupWizard() {
                 <button
                   type="submit"
                   disabled={!teacherForm.formState.isValid || isLoading}
-                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                  className="w-full mt-4 py-3 text-lg bg-bouton  text-white rounded-xl hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
                 >
                   {isLoading ? "Validation..." : "Valider"}
                 </button>
                 <div className="mt-1 text-center">
                   <Link
                     href="/"
-                    className="text-sm font-medium text-blue-600 hover:underline"
+                    className="text-sm font-medium text-primary hover:underline"
                   >
                     Retour page Accueil
                   </Link>

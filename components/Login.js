@@ -215,7 +215,7 @@ export default function Login(props) {
 
   return (
     <div
-      className="max-w-md mx-auto mt-10 rounded-xl shadow-lg p-6 bg-gray-50 relative"
+      className="max-w-md mx-auto mt-10 rounded-xl shadow-2xl p-6 bg-gray-50 relative"
       aria-busy={isSubmitting || isValidatingClass}
     >
       {!multipleClasses && (
@@ -281,7 +281,7 @@ export default function Login(props) {
                     className={`text-sm ${
                       busy
                         ? "text-gray-400 pointer-events-none"
-                        : "text-primary hover:underline"
+                        : "!text-primary hover:!underline"
                     }`}
                     aria-disabled={busy}
                     onClick={(e) => {
@@ -315,7 +315,7 @@ export default function Login(props) {
               className={`text-sm font-medium ${
                 busy
                   ? "text-gray-400 pointer-events-none"
-                  : "text-primary hover:underline"
+                  : "!text-primary hover:!underline"
               }`}
               aria-disabled={busy}
               onClick={(e) => {

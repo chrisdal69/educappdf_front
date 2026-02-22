@@ -52,7 +52,7 @@ export default function Account(props) {
 
 
   return (
-    <div className="max-w-md mx-auto mt-10 rounded-xl shadow-lg p-6 bg-bg2 text-center">
+    <div className="max-w-md mx-auto mt-10 rounded-xl shadow-2xl p-6 bg-bg text-center">
       <h2 className="text-2xl font-semibold mb-6">Mon compte</h2>
       {user && (
         <h2 className="text-2xl mb-6">

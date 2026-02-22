@@ -1,7 +1,8 @@
 const themeTokens = {
   colors: {
-    bg: '#8E9D8B',
-    bg2:'#E6EAEA',
+    bg2: '#8E9D8B',
+    bg3: '#d0d9d8', 
+    bg:'#E6EAEA',
     surface: '#ffffff',
     primary: '#30675f',
     text: '#222',

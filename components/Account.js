@@ -49,7 +49,7 @@ export default function Account(props) {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 rounded-xl shadow-lg p-6 bg-white text-center">
+    <div className="max-w-md mx-auto mt-10 rounded-xl shadow-2xl p-6 bg-bg text-center">
       <h2 className="text-2xl font-semibold mb-6">Mon compte</h2>
       {user && (
         <h2 className="text-2xl mb-6">
@@ -61,7 +61,7 @@ export default function Account(props) {
 
       <button
         onClick={handleLogout}
-        className="w-full py-2 rounded-lg bg-red-400 text-xl text-white font-semibold hover:bg-red-700 mb-4"
+            className="w-full py-3 text-lg rounded-lg bg-gray-800 text-gray-100 font-semibold hover:bg-red-800 hover:text-white disabled:bg-gray-300"
       >
         Logout
       </button>
@@ -69,21 +69,21 @@ export default function Account(props) {
       <div className="flex flex-col justify-center">
         <Link
           href={changePasswordHref}
-          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+          className="inline-block pt-4 px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-primary"
           onClick={() => props.close()}
         >
           Changer le mot de passe
         </Link>
         <Link
           href={leaveClassHref}
-          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+          className="inline-block py-2 px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-primary"
           onClick={() => props.close()}
         >
           Se désinscrire de la classe de {user?.publicname}
         </Link>
         <Link
           href="/deleteaccount"
-          className="inline-block py-2 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+          className="inline-block px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-primary"
           onClick={() => props.close()}
         >
           Supprimer mon compte MathsApp

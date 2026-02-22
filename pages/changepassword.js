@@ -144,7 +144,7 @@ export default function ChangePassword() {
   }, [router]);
 
   const handleReturn = () => {
-    if (0) {
+    if (shouldReturnToIndexBis) {
       router.push("/indexbis");
       return;
     }
@@ -264,17 +264,17 @@ export default function ChangePassword() {
         <button
           type="submit"
           disabled={!isValid || busy}
-            className="w-full py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
+            className=" w-full py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
         >
           {isLoading ? "Mise à jour..." : "Changer le mot de passe"}
         </button>
 
-        <div className="text-center mt-4">
+        <div className="text-center ">
           <button
             type="button"
             onClick={handleReturn}
             disabled={busy}
-            className={`text-sm ${busy ? "text-gray-400" : "text-blue-600 hover:underline"}`}
+            className={`text-sm ${busy ? "text-gray-400" : "text-primary hover:underline"} `}
           >
             Retour à la page précédente
           </button>

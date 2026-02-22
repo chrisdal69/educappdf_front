@@ -188,7 +188,7 @@ export default function ChangePassword() {
 
   return (
     <div
-      className="relative w-full min-h-screen flex items-center justify-center p-4 bg-bg overflow-hidden"
+      className="relative w-full min-h-screen flex items-center justify-center p-4 bg-bg3 overflow-hidden"
     >
       <div
         aria-hidden="true"

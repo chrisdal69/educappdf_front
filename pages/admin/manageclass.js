@@ -24,6 +24,8 @@ export default function ManageClass() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [isCardVisible, setIsCardVisible] = useState(false);
+  const [isVeilVisible, setIsVeilVisible] = useState(false);
   const [classCode, setClassCode] = useState("");
   const [classCodeExpires, setClassCodeExpires] = useState(null);
   const [codeLoading, setCodeLoading] = useState(false);
@@ -57,6 +59,12 @@ export default function ManageClass() {
   };
 
   const canManage = useMemo(() => isAdmin && !!classId, [isAdmin, classId]);
+
+  useEffect(() => {
+    setIsCardVisible(true);
+    const veilTimeout = setTimeout(() => setIsVeilVisible(true), 1000);
+    return () => clearTimeout(veilTimeout);
+  }, []);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -273,10 +281,22 @@ export default function ManageClass() {
 
   return (
     <div
-      className="w-full min-h-screen flex items-center justify-center p-4"
+      className="relative w-full min-h-screen flex items-center justify-center p-4 overflow-hidden"
       style={{ backgroundColor: "#b8b8b6" }}
     >
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white shadow-lg rounded-xl p-6 relative flex flex-col min-h-0">
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 z-10 bg-black/25 backdrop-blur-sm transition-opacity duration-300 ${
+          isVeilVisible ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <div
+        className={`relative z-20 w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white shadow-lg rounded-xl p-6 transform-gpu origin-top-right transition-transform transition-opacity duration-1000 ease-out motion-reduce:transition-none motion-reduce:transform-none flex flex-col min-h-0 ${
+          isCardVisible
+            ? "scale-100 opacity-100"
+            : "scale-0 opacity-0 pointer-events-none"
+        }`}
+      >
         <h2 className="text-2xl font-semibold text-center mb-6">
           Gérer la classe de {className}
         </h2>

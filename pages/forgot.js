@@ -50,6 +50,8 @@ export default function ForgotWizard() {
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCardVisible, setIsCardVisible] = useState(false);
+  const [isVeilVisible, setIsVeilVisible] = useState(false);
   const [codeExpiresAt, setCodeExpiresAt] = useState(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -85,6 +87,12 @@ export default function ForgotWizard() {
 
   const newPassword = watch("newPassword", "");
   const busy = isLoading || isSubmitting;
+
+  useEffect(() => {
+    setIsCardVisible(true);
+    const veilTimeout = setTimeout(() => setIsVeilVisible(true), 1000);
+    return () => clearTimeout(veilTimeout);
+  }, []);
 
   // ✅ Vérifie la robustesse du mot de passe
   useEffect(() => {
@@ -278,11 +286,21 @@ export default function ForgotWizard() {
 
   return (
     <div
-      className="w-full min-h-screen flex items-center justify-center p-4"
+      className="relative w-full min-h-screen flex items-center justify-center p-4 overflow-hidden"
       style={{ backgroundColor: "bg3" }}
     >
       <div
-        className="w-full max-w-md bg-white shadow-2xl rounded-xl p-6 relative"
+        aria-hidden="true"
+        className={`absolute inset-0 z-10 bg-black/25 backdrop-blur-sm transition-opacity duration-300 ${
+          isVeilVisible ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <div
+        className={`relative z-20 w-full max-w-md bg-white shadow-2xl rounded-xl p-6 transform-gpu origin-top-right transition-transform transition-opacity duration-1000 ease-out motion-reduce:transition-none motion-reduce:transform-none ${
+          isCardVisible
+            ? "scale-100 opacity-100"
+            : "scale-0 opacity-0 pointer-events-none"
+        }`}
         aria-busy={isLoading || isSubmitting}
       >
       {/* Barre de progression */}

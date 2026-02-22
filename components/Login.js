@@ -278,7 +278,7 @@ export default function Login(props) {
                 <div className="mt-2 text-right">
                   <Link
                     href="/forgot"
-                    className={`text-sm ${
+                    className={`text-sm font-medium ${
                       busy
                         ? "text-gray-400 pointer-events-none"
                         : "!text-primary hover:!underline"

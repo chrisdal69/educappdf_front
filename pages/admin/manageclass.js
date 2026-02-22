@@ -666,12 +666,11 @@ export default function ManageClass() {
         <button
           type="button"
           onClick={handleReturn}
-          className="text-primary hover:underline mt-4 "
+          className="text-primary font-medium hover:underline mt-4 text-right"
         >
           Retour à la page précédente
         </button>
       </div>
-      <div className="text-center mt-4"></div>
     </div>
   );
 }

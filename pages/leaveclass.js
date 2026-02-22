@@ -88,7 +88,7 @@ export default function LeaveClass() {
   return (
     <div
       className="relative w-full min-h-screen flex items-center justify-center p-4 overflow-hidden"
-      style={{ backgroundColor: "#b8b8b6" }}
+      style={{ backgroundColor: "bg3" }}
     >
       <div
         aria-hidden="true"
@@ -112,7 +112,7 @@ export default function LeaveClass() {
           ci-dessous : "{EXPECTED_PHRASE}"
         </p>
 
-        {message && <p className="text-center mt-4 text-blue-600">{message}</p>}
+        {message && <p className="text-center mt-4 text-primary">{message}</p>}
 
         <div className="text-center mt-4 space-y-4">
           <input
@@ -121,26 +121,27 @@ export default function LeaveClass() {
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             disabled={busy || !isAuthenticated}
-            className="w-full border rounded px-3 py-2   focus:bg-white text-red-500 placeholder:text-red-300 focus:outline-none focus:ring-1 focus:ring-red-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:placeholder:text-gray-400"
+            className="w-full border rounded-lg px-3 py-2   focus:bg-white text-red-500 placeholder:text-red-300 focus:outline-none focus:ring-1 focus:ring-red-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:placeholder:text-gray-400"
           />
           <button
             type="button"
             onClick={handleLeaveClass}
             disabled={!canLeave || busy || !isAuthenticated}
-            className={`w-full py-2 text-white rounded disabled:bg-gray-300 ${
-              canLeave && !busy ? "bg-red-500 hover:bg-red-600" : "bg-gray-300"
+            className={`w-full my-2 py-2 text-white font-semibold text-lg rounded-lg disabled:bg-gray-300 ${
+              canLeave && !busy ? "bg-red-800 hover:bg-red-600" : "bg-gray-300"
             }`}
           >
             {busy ? "Désinscription..." : "Se désinscrire"}
           </button>
         </div>
+            {/* className=" w-full mt-2 py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300" */}
 
-        <div className="text-right mt-4">
+        <div className="text-right mt-2">
           <button
             type="button"
             onClick={handleReturn}
             className={`text-sm ${
-              busy ? "text-gray-400" : "text-blue-600 hover:underline"
+              busy ? "text-gray-400" : "text-primary font-medium hover:underline"
             }`}
           >
             Retour à la page précédente

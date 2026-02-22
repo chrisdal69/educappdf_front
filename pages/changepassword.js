@@ -230,7 +230,7 @@ export default function ChangePassword() {
           <button
             type="button"
             onClick={() => setPasswordVisible(!passwordVisible)}
-            className="absolute right-3 top-2 text-gray-500"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
             disabled={busy}
           >
               {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -266,7 +266,7 @@ export default function ChangePassword() {
           <button
             type="button"
             onClick={() => setConfirmVisible(!confirmVisible)}
-            className="absolute right-3 top-2 text-gray-500"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
             disabled={busy}
           >
               {confirmVisible ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -287,12 +287,12 @@ export default function ChangePassword() {
           {isLoading ? "Mise à jour..." : "Changer le mot de passe"}
         </button>
 
-        <div className="text-center ">
+        <div className="text-right ">
           <button
             type="button"
             onClick={handleReturn}
             disabled={busy}
-            className={`text-sm ${busy ? "text-gray-400" : "text-primary hover:underline"} `}
+            className={`text-sm font-medium ${busy ? "text-gray-400" : "text-primary hover:underline"} `}
           >
             Retour à la page précédente
           </button>

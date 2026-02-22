@@ -77,7 +77,7 @@ export default function DeleteAccount() {
   return (
     <div
       className="relative w-full min-h-screen flex items-center justify-center p-4 overflow-hidden"
-      style={{ backgroundColor: "#b8b8b6" }}
+      style={{ backgroundColor: "bg3" }}
     >
       <div
         aria-hidden="true"
@@ -101,7 +101,7 @@ export default function DeleteAccount() {
           ci-dessous : "{EXPECTED_PHRASE}"
         </p>
 
-        {message && <p className="text-center mt-4 text-blue-600">{message}</p>}
+        {message && <p className="text-center mt-4 text-primary">{message}</p>}
 
         <div className="text-center mt-4 space-y-4">
           <input
@@ -110,14 +110,14 @@ export default function DeleteAccount() {
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             disabled={busy || !isAuthenticated}
-            className="w-full border rounded px-3 py-2   focus:bg-white text-red-500 placeholder:text-red-300 focus:outline-none focus:ring-1 focus:ring-red-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:placeholder:text-gray-400"
+            className="w-full border rounded-lg px-3 py-2   focus:bg-white text-red-500 placeholder:text-red-300 focus:outline-none focus:ring-1 focus:ring-red-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:placeholder:text-gray-400"
           />
           <button
             type="button"
             onClick={handleDeleteAccount}
             disabled={!canDelete || busy || !isAuthenticated}
-            className={`w-full py-2 text-white rounded disabled:bg-gray-300 ${
-              canDelete && !busy ? "bg-red-500 hover:bg-red-600" : "bg-gray-300"
+            className={`w-full my-2 py-2 text-white text-lg font-medium rounded-lg disabled:bg-gray-300 ${
+              canDelete && !busy ? "bg-red-800 hover:bg-red-600" : "bg-gray-300"
             }`}
           >
             {busy ? "Suppression..." : "Supprimer définitivement"}
@@ -129,7 +129,7 @@ export default function DeleteAccount() {
             type="button"
             onClick={handleReturn}
             className={`text-sm ${
-              busy ? "text-gray-400" : "text-blue-600 hover:underline"
+              busy ? "text-gray-400" : "text-primary font-medium hover:underline"
             }`}
           >
             Retour à la page précédente

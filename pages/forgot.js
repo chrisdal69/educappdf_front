@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -9,9 +9,10 @@ import { Eye, EyeOff, CheckCircle, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 const NODE_ENV = process.env.NODE_ENV;
-const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
-const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
-const CODE_TTL_MS = 7 * 60 * 1000;
+ const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
+ const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
+ const CODE_TTL_MS = 7 * 60 * 1000;
+ const OTP_LENGTH = 4;
 
 // === Schémas de validation ===
 const emailSchema = yup.object().shape({
@@ -42,6 +43,125 @@ const passwordSchema = yup.object().shape({
     )
     .required("Confirmation obligatoire"),
 });
+
+function OtpInput({ value, onChange, disabled, length = OTP_LENGTH }) {
+  const inputRefs = useRef([]);
+  const [chars, setChars] = useState(() => {
+    const safeValue = String(value || "");
+    return Array.from({ length }, (_, i) => safeValue[i] || "");
+  });
+
+  useEffect(() => {
+    const safeValue = String(value || "");
+    setChars(Array.from({ length }, (_, i) => safeValue[i] || ""));
+  }, [value, length]);
+
+  const commit = (nextChars, nextFocusIndex = null) => {
+    setChars(nextChars);
+    onChange(nextChars.join(""));
+
+    if (
+      nextFocusIndex !== null &&
+      nextFocusIndex >= 0 &&
+      nextFocusIndex < length
+    ) {
+      inputRefs.current[nextFocusIndex]?.focus();
+    }
+  };
+
+  const fillFromIndex = (startIndex, rawText) => {
+    const clean = String(rawText || "")
+      .replace(/\s/g, "")
+      .replace(/[^a-z0-9]/gi, "")
+      .toUpperCase()
+      .slice(0, length);
+    if (!clean) return;
+
+    const nextChars = [...chars];
+    let writeIndex = startIndex;
+
+    for (const c of clean) {
+      if (writeIndex >= length) break;
+      nextChars[writeIndex] = c;
+      writeIndex += 1;
+    }
+
+    commit(nextChars, Math.min(writeIndex, length - 1));
+  };
+
+  const handleChange = (index, e) => {
+    const raw = e.target.value;
+
+    if (raw.length > 1) {
+      fillFromIndex(index, raw);
+      return;
+    }
+
+    const clean = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    const nextChars = [...chars];
+    nextChars[index] = clean || "";
+
+    commit(nextChars, clean && index < length - 1 ? index + 1 : index);
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === "Backspace") {
+      if (!chars[index] && index > 0) {
+        e.preventDefault();
+        const nextChars = [...chars];
+        nextChars[index - 1] = "";
+        commit(nextChars, index - 1);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    if (e.key === "ArrowRight" && index < length - 1) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (index, e) => {
+    e.preventDefault();
+    const text = e.clipboardData?.getData("text") ?? "";
+    fillFromIndex(index, text);
+  };
+
+  return (
+    <div className="flex items-center justify-center gap-3">
+      {Array.from({ length }, (_, index) => (
+        <input
+          key={index}
+          ref={(el) => {
+            inputRefs.current[index] = el;
+          }}
+          type="text"
+          inputMode="text"
+          pattern="[A-Za-z0-9]*"
+          maxLength={1}
+          value={chars[index]}
+          onChange={(e) => handleChange(index, e)}
+          onKeyDown={(e) => handleKeyDown(index, e)}
+          onPaste={(e) => handlePaste(index, e)}
+          onFocus={(e) => e.currentTarget.select()}
+          disabled={disabled}
+          autoFocus={index === 0}
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          autoCapitalize="characters"
+          spellCheck={false}
+          aria-label={`Caractère ${index + 1} du code`}
+          className="w-12 h-12 border rounded text-center text-xl tracking-widest"
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function ForgotWizard() {
   const router = useRouter();
@@ -78,6 +198,7 @@ export default function ForgotWizard() {
     register,
     handleSubmit,
     watch,
+    setValue,
     resetField, // 👈 ajoute ici !
     formState: { errors, isValid, isSubmitting },
   } = useForm({
@@ -86,6 +207,7 @@ export default function ForgotWizard() {
   });
 
   const newPassword = watch("newPassword", "");
+  const codeValue = watch("code", "");
   const busy = isLoading || isSubmitting;
 
   useEffect(() => {
@@ -384,13 +506,16 @@ export default function ForgotWizard() {
             <p className="text-sm text-gray-600 mb-5">
               Code envoyé à <strong>{email}</strong>
             </p>
-            <input
-              type="text"
-              maxLength={4}
-              placeholder="Code"
-              {...register("code")}
-              className="border rounded px-4 py-2 text-center tracking-widest w-40 mx-auto"
+            <input type="hidden" {...register("code")} />
+            <OtpInput
+              value={codeValue}
               disabled={busy}
+              onChange={(nextCode) => {
+                setValue("code", nextCode, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
             />
             <p className="text-sm text-gray-600 ">
               Temps restant pour la saisie : {remainingLabel}
@@ -411,7 +536,7 @@ export default function ForgotWizard() {
                 type="button"
                 onClick={handleResendCode}
                 disabled={busy}
-                className="w-full py-3 mb-5 text-lg bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300"
+                className="w-full py-3 mb-3 text-lg bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300"
               >
                 Renvoyer le code
               </button>

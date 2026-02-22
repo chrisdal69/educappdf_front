@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -14,6 +14,7 @@ const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
 const CODE_TTL_MS = 7 * 60 * 1000;
+const OTP_LENGTH = 4;
 
 const nameRegex = /^[\p{L}\s_-]+$/u;
 const teacherCodeRegex = /^[A-Za-z0-9]{4}$/;
@@ -62,6 +63,133 @@ const existingPasswordSchema = yup.object().shape({
   password: yup.string().required("Mot de passe obligatoire"),
 });
 
+function OtpInput({
+  value,
+  onChange,
+  disabled,
+  length = OTP_LENGTH,
+  caseTransform = "upper",
+  autoCapitalize = "characters",
+}) {
+  const inputRefs = useRef([]);
+  const [chars, setChars] = useState(() => {
+    const safeValue = String(value || "");
+    return Array.from({ length }, (_, i) => safeValue[i] || "");
+  });
+
+  useEffect(() => {
+    const safeValue = String(value || "");
+    setChars(Array.from({ length }, (_, i) => safeValue[i] || ""));
+  }, [value, length]);
+
+  const commit = (nextChars, nextFocusIndex = null) => {
+    setChars(nextChars);
+    onChange(nextChars.join(""));
+
+    if (
+      nextFocusIndex !== null &&
+      nextFocusIndex >= 0 &&
+      nextFocusIndex < length
+    ) {
+      inputRefs.current[nextFocusIndex]?.focus();
+    }
+  };
+
+  const fillFromIndex = (startIndex, rawText) => {
+    let clean = String(rawText || "")
+      .replace(/\s/g, "")
+      .replace(/[^a-z0-9]/gi, "")
+      .slice(0, length);
+    if (caseTransform === "upper") clean = clean.toUpperCase();
+    if (!clean) return;
+
+    const nextChars = [...chars];
+    let writeIndex = startIndex;
+
+    for (const c of clean) {
+      if (writeIndex >= length) break;
+      nextChars[writeIndex] = c;
+      writeIndex += 1;
+    }
+
+    commit(nextChars, Math.min(writeIndex, length - 1));
+  };
+
+  const handleChange = (index, e) => {
+    const raw = e.target.value;
+
+    if (raw.length > 1) {
+      fillFromIndex(index, raw);
+      return;
+    }
+
+    let clean = raw.replace(/[^a-z0-9]/gi, "");
+    if (caseTransform === "upper") clean = clean.toUpperCase();
+    const nextChars = [...chars];
+    nextChars[index] = clean || "";
+
+    commit(nextChars, clean && index < length - 1 ? index + 1 : index);
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === "Backspace") {
+      if (!chars[index] && index > 0) {
+        e.preventDefault();
+        const nextChars = [...chars];
+        nextChars[index - 1] = "";
+        commit(nextChars, index - 1);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    if (e.key === "ArrowRight" && index < length - 1) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (index, e) => {
+    e.preventDefault();
+    const text = e.clipboardData?.getData("text") ?? "";
+    fillFromIndex(index, text);
+  };
+
+  return (
+    <div className="flex items-center justify-center gap-3">
+      {Array.from({ length }, (_, index) => (
+        <input
+          key={index}
+          ref={(el) => {
+            inputRefs.current[index] = el;
+          }}
+          type="text"
+          inputMode="text"
+          pattern="[A-Za-z0-9]*"
+          maxLength={1}
+          value={chars[index]}
+          onChange={(e) => handleChange(index, e)}
+          onKeyDown={(e) => handleKeyDown(index, e)}
+          onPaste={(e) => handlePaste(index, e)}
+          onFocus={(e) => e.currentTarget.select()}
+          disabled={disabled}
+          autoFocus={index === 0}
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          autoCapitalize={autoCapitalize}
+          spellCheck={false}
+          aria-label={`Caractère ${index + 1} du code`}
+          className="w-12 h-12 border rounded text-center text-xl tracking-widest"
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function SignupWizard() {
   const router = useRouter();
 
@@ -82,6 +210,7 @@ export default function SignupWizard() {
   const [remainingMs, setRemainingMs] = useState(0);
 
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [existingPasswordVisible, setExistingPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordRules, setPasswordRules] = useState({
@@ -125,6 +254,7 @@ export default function SignupWizard() {
   });
 
   const watchedPassword = newPasswordForm.watch("password", "");
+  const teacherCodeValue = teacherForm.watch("code", "");
 
   useEffect(() => {
     setIsCardVisible(true);
@@ -308,7 +438,7 @@ export default function SignupWizard() {
       const res = await fetch(`${urlFetch}/auth/signup/validate-teacher-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code: String(code || "").trim() }),
       });
 
       const json = await res.json().catch(() => ({}));
@@ -466,7 +596,7 @@ export default function SignupWizard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: identity.email,
-          code: verificationCode,
+          code: verificationCode.trim().toUpperCase(),
           classId,
         }),
       });
@@ -609,21 +739,22 @@ export default function SignupWizard() {
               >
                 <div>
                   <label
-                    htmlFor="teacherCode"
-                    className="block text-sm font-medium text-gray-700 mb-1"
+                    className="block text-sm font-medium text-gray-700 mb-3"
                   >
                     Saisir le code professeur
                   </label>
-                  <input
-                    id="teacherCode"
-                    type="text"
-                    maxLength={4}
-                    {...teacherForm.register("code")}
-                    className="w-full border rounded px-3 py-2 tracking-widest text-center"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
+                  <input type="hidden" {...teacherForm.register("code")} />
+                  <OtpInput
+                    value={teacherCodeValue}
                     disabled={isLoading}
+                    caseTransform="none"
+                    autoCapitalize="none"
+                    onChange={(nextCode) => {
+                      teacherForm.setValue("code", nextCode, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }}
                   />
                   {teacherForm.formState.errors.code && (
                     <p className="text-sm text-red-600">
@@ -634,7 +765,7 @@ export default function SignupWizard() {
                 <button
                   type="submit"
                   disabled={!teacherForm.formState.isValid || isLoading}
-                  className="w-full mt-4 py-3 text-lg bg-bouton  text-white rounded-xl hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
+                  className="w-full mt-2 py-3 text-lg bg-bouton  text-white rounded-xl hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
                 >
                   {isLoading ? "Validation..." : "Valider"}
                 </button>
@@ -779,7 +910,7 @@ export default function SignupWizard() {
                 <button
                   type="submit"
                   disabled={!identityForm.formState.isValid || isLoading}
-                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                  className="w-full my-2 py-3 text-lg bg-bouton  text-white rounded-xl hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
                 >
                   {isLoading ? "Validation..." : "Valider"}
                 </button>
@@ -791,7 +922,7 @@ export default function SignupWizard() {
                     setStep(1);
                     setMessage("");
                   }}
-                  className="text-blue-700 rounded hover:underline text-sm"
+                  className="text-primary font-medium rounded hover:underline text-sm"
                 >
                   Retour page précédente
                 </button>
@@ -833,7 +964,7 @@ export default function SignupWizard() {
                     <button
                       type="button"
                       onClick={() => setPasswordVisible((v) => !v)}
-                      className="absolute right-3 top-2 text-gray-500"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                       disabled={isLoading}
                     >
                       {passwordVisible ? (
@@ -871,7 +1002,7 @@ export default function SignupWizard() {
                     <button
                       type="button"
                       onClick={() => setConfirmVisible((v) => !v)}
-                      className="absolute right-3 top-2 text-gray-500"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                       disabled={isLoading}
                     >
                       {confirmVisible ? (
@@ -891,7 +1022,7 @@ export default function SignupWizard() {
                 <button
                   type="submit"
                   disabled={!newPasswordForm.formState.isValid || isLoading}
-                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                  className="w-full my-2 py-3 text-lg bg-bouton  text-white rounded-xl hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
                 >
                   {isLoading ? "Envoi..." : "S'inscrire"}
                 </button>
@@ -903,7 +1034,7 @@ export default function SignupWizard() {
                     setStep(2);
                     setMessage("");
                   }}
-                  className="text-blue-700 rounded hover:underline text-sm"
+                  className="text-primary font-medium rounded hover:underline text-sm"
                 >
                   Retour page précédente
                 </button>
@@ -939,14 +1070,33 @@ export default function SignupWizard() {
                   >
                     Mot de passe
                   </label>
-                  <input
-                    id="existingPassword"
-                    type="password"
-                    {...existingPasswordForm.register("password")}
-                    className="w-full border rounded px-3 py-2"
-                    disabled={isLoading}
-                    autoComplete="current-password"
-                  />
+                  <div className="relative">
+                    <input
+                      id="existingPassword"
+                      type={existingPasswordVisible ? "text" : "password"}
+                      {...existingPasswordForm.register("password")}
+                      className="w-full border rounded px-3 py-2 pr-10"
+                      disabled={isLoading}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setExistingPasswordVisible((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                      disabled={isLoading}
+                      aria-label={
+                        existingPasswordVisible
+                          ? "Masquer le mot de passe"
+                          : "Afficher le mot de passe"
+                      }
+                    >
+                      {existingPasswordVisible ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
                   {existingPasswordForm.formState.errors.password && (
                     <p className="text-sm text-red-600">
                       {existingPasswordForm.formState.errors.password.message}
@@ -959,7 +1109,7 @@ export default function SignupWizard() {
                   disabled={
                     !existingPasswordForm.formState.isValid || isLoading
                   }
-                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+                  className="w-full my-2 py-3 text-lg bg-bouton  text-white rounded-xl hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
                 >
                   {isLoading ? "Connexion..." : "Se connecter"}
                 </button>
@@ -971,7 +1121,7 @@ export default function SignupWizard() {
                     setStep(2);
                     setMessage("");
                   }}
-                  className="text-blue-700 rounded hover:underline text-sm"
+                  className="text-primary font-medium rounded hover:underline text-sm"
                 >
                   Retour page précédente
                 </button>
@@ -992,24 +1142,20 @@ export default function SignupWizard() {
               <p className="text-sm text-gray-600 mb-3">
                 Code envoyé à <strong>{identity?.email}</strong>
               </p>
-              <input
-                type="text"
-                maxLength={4}
-                placeholder="Code"
+              <OtpInput
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                className="border rounded px-4 py-2 text-center tracking-widest w-40"
+                onChange={setVerificationCode}
                 disabled={isLoading}
               />
               <p className="text-sm text-gray-600 mt-3">
                 Temps restant pour la saisie : {remainingLabel}
               </p>
-              <div className="mt-4 space-y-2">
+              <div className="mt-2 space-y-2">
                 <button
                   type="button"
                   onClick={handleVerifyCode}
-                  disabled={isLoading || verificationCode.trim().length !== 4}
-                  className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300"
+                  disabled={isLoading || verificationCode.length !== OTP_LENGTH}
+                  className="w-full my-4 py-3 text-lg bg-bouton  text-white rounded-xl hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
                 >
                   {isLoading ? "Vérification..." : "Valider"}
                 </button>
@@ -1017,7 +1163,7 @@ export default function SignupWizard() {
                   type="button"
                   onClick={handleResendCode}
                   disabled={isLoading}
-                  className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                className="w-full py-3 mb-4 text-lg bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300"
                 >
                   Renvoyer le code
                 </button>
@@ -1025,7 +1171,7 @@ export default function SignupWizard() {
                   type="button"
                   onClick={handleCancelSignup}
                   disabled={isLoading}
-                  className="w-full py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-300"
+                className="w-full py-3 mb-3 text-lg bg-gray-200 text-gray-700 rounded-xl hover:bg-red-800 hover:text-white"
                 >
                   Annuler l'inscription
                 </button>

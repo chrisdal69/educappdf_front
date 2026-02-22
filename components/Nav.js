@@ -25,11 +25,32 @@ const buildTabs = (rawTabs) => {
     Array.isArray(rawTabs) && rawTabs.length ? rawTabs : DEFAULT_TABS;
 
   return sourceTabs
-    .map((tab) => (typeof tab === "string" ? tab.trim() : ""))
+    .map((tab) => {
+      if (typeof tab === "string") {
+        const label = tab.trim();
+        return label ? { label, slug: toSlug(label) } : null;
+      }
+
+      if (tab && typeof tab === "object") {
+        const label =
+          typeof tab.label === "string"
+            ? tab.label.trim()
+            : typeof tab.repertoire === "string"
+            ? tab.repertoire.trim()
+            : "";
+        const slug =
+          typeof tab.slug === "string" ? tab.slug.trim() : toSlug(label);
+
+        if (!label) return null;
+        return { label, slug };
+      }
+
+      return null;
+    })
     .filter(Boolean)
-    .map((label, index) => ({
-      label,
-      slug: toSlug(label) || `onglet-${index + 1}`,
+    .map((tab, index) => ({
+      label: tab.label,
+      slug: tab.slug || `onglet-${index + 1}`,
     }));
 };
 
@@ -42,16 +63,35 @@ export default function Nav(props) {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const isAdmin = isAuthenticated && user?.role === "admin";
   const tabs = isAuthenticated ? buildTabs(user?.repertoires) : [];
+  const adminTabs = useMemo(() => {
+    if (!isAuthenticated) return [];
+    if (isAdmin) return tabs;
+    const allowed = new Set(
+      Array.isArray(user?.adminRepertoires) ? user.adminRepertoires : []
+    );
+    return tabs.filter((tab) => allowed.has(tab.slug));
+  }, [isAdmin, isAuthenticated, tabs, user?.adminRepertoires]);
   const tabsSignature = useMemo(
     () => tabs.map((tab) => tab.slug).join("|"),
     [tabs]
+  );
+  const adminTabsSignature = useMemo(
+    () => adminTabs.map((tab) => tab.slug).join("|"),
+    [adminTabs]
   );
   const menuSignature = useMemo(() => {
     const roleKey = isAdmin ? "admin" : "user";
     const authKey = isAuthenticated ? "auth" : "guest";
     const nameKey = isAuthenticated ? `${user?.prenom || ""}|${user?.nom || ""}` : "";
-    return `${authKey}|${roleKey}|${tabsSignature}|${nameKey}`;
-  }, [isAdmin, isAuthenticated, tabsSignature, user?.nom, user?.prenom]);
+    return `${authKey}|${roleKey}|${tabsSignature}|${adminTabsSignature}|${nameKey}`;
+  }, [
+    isAdmin,
+    isAuthenticated,
+    tabsSignature,
+    adminTabsSignature,
+    user?.nom,
+    user?.prenom,
+  ]);
   const slugToTab = tabs.reduce((acc, tab, index) => {
     acc[tab.slug] = String(index + 2);
     return acc;
@@ -101,7 +141,11 @@ export default function Nav(props) {
         label: <Link href={`/admin/${tab.slug}`}>{`A_${tab.label}`}</Link>,
         className: "nav-item",
       }))
-    : [];
+    : adminTabs.map((tab, index) => ({
+        key: `admin:${slugToTab[tab.slug] || String(index + 2)}`,
+        label: <Link href={`/admin/${tab.slug}`}>{`A_${tab.label}`}</Link>,
+        className: "nav-item",
+      }));
 
   const items = [
     ...publicItems,

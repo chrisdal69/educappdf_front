@@ -9,6 +9,13 @@ export async function middleware(req) {
     return NextResponse.next();
   }
 
+  const pathname = req.nextUrl.pathname || "";
+  const parts = pathname.split("/").filter(Boolean); // e.g. ["admin", "ciel1"]
+  const adminSubpath = parts.length >= 2 ? parts[1] : "";
+  const isAdminIndex = parts.length === 1; // "/admin"
+  const isManageClass = adminSubpath === "manageclass";
+  const isAdminRepertoirePage = parts.length === 2 && adminSubpath && !isManageClass;
+
   const cookie = req.cookies.get("jwt")?.value;
   if (!cookie) {
     return NextResponse.redirect(new URL("/", req.url));
@@ -26,10 +33,30 @@ export async function middleware(req) {
   }
 
   const data = await resp.json();
-  if (data.user?.role !== "admin") {
+  const user = data?.user || null;
+
+  // admin global: acces complet
+  if (user?.role === "admin") {
+    return NextResponse.next();
+  }
+
+  // teacher: acces limite a certains repertoires (/admin/[repertoire])
+  if (isAdminRepertoirePage) {
+    const allowed = Array.isArray(user?.adminRepertoires)
+      ? user.adminRepertoires
+      : [];
+
+    if (allowed.includes(adminSubpath)) {
+      return NextResponse.next();
+    }
+  }
+
+  // /admin (index) et /admin/manageclass restent reserves aux admins
+  if (isAdminIndex || isManageClass || parts[0] === "admin") {
     return NextResponse.redirect(new URL("/", req.url));
   }
-  return NextResponse.next();
+
+  return NextResponse.redirect(new URL("/", req.url));
 }
 
 export const config = { matcher: ["/admin/:path*"] };

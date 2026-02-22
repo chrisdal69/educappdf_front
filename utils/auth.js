@@ -6,7 +6,7 @@ export const SESSION_EXPIRED_MESSAGE =
 
 export const throwIfUnauthorized = (response) => {
   if (!response) return;
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401) {
     const error = new Error(SESSION_EXPIRED_MESSAGE);
     error.status = response.status;
     error.isAuthError = true;
@@ -17,7 +17,7 @@ export const throwIfUnauthorized = (response) => {
 export const handleAuthError = (error, { dispatch, router } = {}) => {
   if (!error) return false;
   const status = error.status;
-  if (error.isAuthError || status === 401 || status === 403) {
+  if (error.isAuthError || status === 401) {
     message.error(SESSION_EXPIRED_MESSAGE);
     if (dispatch) dispatch(clearAuth());
     if (router && typeof router.replace === "function") {

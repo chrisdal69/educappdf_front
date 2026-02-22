@@ -97,6 +97,7 @@ export default function Login(props) {
           publicname: response.publicname,
           directoryname: response.directoryname,
           repertoires: response.repertoires,
+          adminRepertoires: response.adminRepertoires,
         })
       );
 

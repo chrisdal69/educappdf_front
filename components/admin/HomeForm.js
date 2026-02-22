@@ -17,14 +17,22 @@ const App = ({ nomRepertoire }) => {
   } = theme.useToken();
  //////
   const router = useRouter();
-  const { isAuthenticated, user } = useSelector((s) => s.auth);
+  const { isAuthenticated, isReady: authReady, user } = useSelector((s) => s.auth);
   const isAdmin = isAuthenticated && user?.role === "admin";
+  const adminRepertoires = Array.isArray(user?.adminRepertoires)
+    ? user.adminRepertoires
+    : [];
+  const canAdminRepertoire =
+    isAuthenticated &&
+    (isAdmin ||
+      (typeof nomRepertoire === "string" &&
+        adminRepertoires.includes(nomRepertoire)));
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!canAdminRepertoire) {
       router.replace("/"); // bloque l'accès aux non-admin
     }
-  }, [isAdmin, router]);
+  }, [authReady, canAdminRepertoire, router]);
 /////
   const dispatch = useDispatch();
   const authFetch = async (url, options) => {
@@ -46,9 +54,14 @@ const App = ({ nomRepertoire }) => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const response = await authFetch(`${urlFetch}/cards/admin`, {
-        credentials: "include",
-      });
+      const response = await authFetch(
+        `${urlFetch}/cards/admin?repertoire=${encodeURIComponent(
+          nomRepertoire || ""
+        )}`,
+        {
+          credentials: "include",
+        }
+      );
       const payload = await response.json();
 
       if (response.ok) {
@@ -72,7 +85,7 @@ const App = ({ nomRepertoire }) => {
     } finally {
       setLoading(false);
     }
-  }, [dispatch, urlFetch, user?.classId]);
+  }, [dispatch, urlFetch, user?.classId, nomRepertoire]);
 
   useEffect(() => {
     setResetSignals((prev) => {
@@ -88,7 +101,10 @@ const App = ({ nomRepertoire }) => {
   }, [cards]);
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!authReady) {
+      return;
+    }
+    if (!canAdminRepertoire) {
       return;
     }
     if (
@@ -99,7 +115,13 @@ const App = ({ nomRepertoire }) => {
     }
 
     fetchCards();
-  }, [isAdmin, data?.__classId, data?.__source, fetchCards, user?.classId]);
+  }, [
+    canAdminRepertoire,
+    data?.__classId,
+    data?.__source,
+    fetchCards,
+    user?.classId,
+  ]);
 
   const handleExternalTabChange = (index) => {
     setResetSignals((prev) => {
@@ -147,7 +169,11 @@ const App = ({ nomRepertoire }) => {
     }
   };
 
-  if (!isAdmin) {
+  if (!authReady) {
+    return null;
+  }
+
+  if (!canAdminRepertoire) {
     return null;
   }
 

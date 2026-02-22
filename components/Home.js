@@ -9,6 +9,16 @@ import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { fetchCardsMaths } from "../reducers/cardsMathsSlice";
 
 const CARD_MIN_WIDTH = 380;
+const stripAccentsLower = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const toSlug = (value) =>
+  stripAccentsLower(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 const App = ({ repertoire }) => {
   let {
@@ -20,7 +30,8 @@ const App = ({ repertoire }) => {
   const activeClassId = useSelector((state) => state.auth?.user?.classId);
   const loadedClassId = useSelector((state) => state.cardsMaths.data?.__classId);
   const cardsFiltre = Array.isArray(data?.result) ? data.result : [];
-  const cards = cardsFiltre.filter((obj) => obj.repertoire === repertoire);
+  const activeSlug = toSlug(repertoire);
+  const cards = cardsFiltre.filter((obj) => toSlug(obj?.repertoire) === activeSlug);
 
   const [resetSignals, setResetSignals] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
@@ -48,10 +59,15 @@ const App = ({ repertoire }) => {
     }
 
     const isStaleClass = String(loadedClassId || "") !== String(activeClassId);
-    if (status === "idle" || (status === "succeeded" && isStaleClass)) {
+    const isStaleSource = String(data?.__source || "") !== "public";
+    if (
+      status === "idle" ||
+      isStaleSource ||
+      (status === "succeeded" && isStaleClass)
+    ) {
       dispatch(fetchCardsMaths());
     }
-  }, [activeClassId, dispatch, loadedClassId, status]);
+  }, [activeClassId, data?.__source, dispatch, loadedClassId, status]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

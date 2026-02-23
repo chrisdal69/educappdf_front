@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from "react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { useRouter } from "next/router";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { clearAuth } from "../reducers/authSlice";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -11,6 +12,7 @@ const EXPECTED_PHRASE = `JE VEUX ME DESINSCRIRE DE CETTE CLASSE`;
 
 export default function LeaveClass() {
   const router = useRouter();
+  const dispatch = useDispatch();
   const from = Array.isArray(router.query?.from)
     ? router.query.from[0]
     : router.query?.from;
@@ -63,6 +65,7 @@ export default function LeaveClass() {
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
         setMessage(json.message || "Désinscription réalisée");
+        dispatch(clearAuth());
         setTimeout(() => router.push("/"), 1200);
         return;
       }

@@ -2,8 +2,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
-import { Button, Input, Popover, Radio, Upload } from "antd";
-import { DeleteOutlined, UploadOutlined } from "@ant-design/icons";
+import { Button, Checkbox, Input, Popover, Radio, Upload, message } from "antd";
+import { DeleteOutlined, UploadOutlined, UserOutlined } from "@ant-design/icons";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import Tooltip from "../../components/admin/card/TooltipClickClose";
 import { handleAuthError, throwIfUnauthorized } from "../../utils/auth";
@@ -44,6 +44,11 @@ export default function ManageClass() {
   const [deleteOpenKey, setDeleteOpenKey] = useState("");
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteLoadingKey, setDeleteLoadingKey] = useState("");
+  const [repertoires, setRepertoires] = useState([]);
+  const [repertoiresLoading, setRepertoiresLoading] = useState(false);
+  const [teacherOpenKey, setTeacherOpenKey] = useState("");
+  const [teacherSelection, setTeacherSelection] = useState([]);
+  const [teacherLoadingKey, setTeacherLoadingKey] = useState("");
 
   const from = Array.isArray(router.query?.from)
     ? router.query.from[0]
@@ -100,6 +105,71 @@ export default function ManageClass() {
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
+
+  const fetchRepertoires = useCallback(async () => {
+    if (!canManage) return;
+    setRepertoiresLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `${urlFetch}/users/admin/class/${classId}/repertoires`,
+        { credentials: "include" },
+      );
+      throwIfUnauthorized(res);
+      const payload = await res.json();
+      if (!res.ok) {
+        setErrorMessage(payload?.message || "Erreur lors du chargement.");
+        return;
+      }
+      setRepertoires(Array.isArray(payload?.repertoires) ? payload.repertoires : []);
+    } catch (err) {
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) setErrorMessage("Erreur serveur.");
+    } finally {
+      setRepertoiresLoading(false);
+    }
+  }, [canManage, classId, dispatch, router]);
+
+  useEffect(() => {
+    fetchRepertoires();
+  }, [fetchRepertoires]);
+
+  const repertoireOptions = useMemo(
+    () =>
+      Array.isArray(repertoires)
+        ? repertoires
+            .filter((rep) => rep && typeof rep === "object")
+            .map((rep) => ({
+              label: rep.label,
+              value: rep.slug,
+            }))
+            .filter((opt) => opt.label && opt.value)
+        : [],
+    [repertoires],
+  );
+
+  const teacherSlugsByUserId = useMemo(() => {
+    const map = new Map();
+    const reps = Array.isArray(repertoires) ? repertoires : [];
+
+    reps.forEach((rep) => {
+      const slug = typeof rep?.slug === "string" ? rep.slug : null;
+      if (!slug) return;
+      const teachers = Array.isArray(rep?.teachers) ? rep.teachers : [];
+      teachers.forEach((teacherId) => {
+        const key = teacherId ? String(teacherId) : "";
+        if (!key) return;
+        const existing = map.get(key);
+        if (existing) {
+          existing.add(slug);
+        } else {
+          map.set(key, new Set([slug]));
+        }
+      });
+    });
+
+    return map;
+  }, [repertoires]);
 
   const fetchClassCode = useCallback(async () => {
     if (!canManage) return;
@@ -276,6 +346,41 @@ export default function ManageClass() {
       if (!handled) setErrorMessage("Erreur serveur.");
     } finally {
       setDeleteLoadingKey("");
+    }
+  };
+
+  const handleSaveTeachers = async (student, key) => {
+    const userId = student?.userId ? String(student.userId) : "";
+    if (!userId) return;
+
+    setTeacherLoadingKey(key);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `${urlFetch}/users/admin/class/${classId}/repertoires/teachers`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ userId, adminRepertoires: teacherSelection }),
+        },
+      );
+      throwIfUnauthorized(res);
+      const payload = await res.json();
+      if (!res.ok) {
+        setErrorMessage(payload?.message || "Erreur lors de la mise à jour.");
+        return;
+      }
+
+      setRepertoires(Array.isArray(payload?.repertoires) ? payload.repertoires : []);
+      setTeacherOpenKey("");
+      setTeacherSelection([]);
+      message.success("Droits teacher mis à jour.");
+    } catch (err) {
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) setErrorMessage("Erreur serveur.");
+    } finally {
+      setTeacherLoadingKey("");
     }
   };
 
@@ -566,6 +671,12 @@ export default function ManageClass() {
                   `${st?.nom || ""} ${st?.prenom || ""}`.trim();
                 const isDeleteOpen = deleteOpenKey === key;
                 const isDeleting = deleteLoadingKey === key;
+                const userId = st?.userId ? String(st.userId) : "";
+                const teacherSet = userId ? teacherSlugsByUserId.get(userId) : null;
+                const teacherSlugs = teacherSet ? [...teacherSet] : [];
+                const isTeacher = teacherSlugs.length > 0;
+                const isTeacherOpen = teacherOpenKey === key;
+                const isTeacherSaving = teacherLoadingKey === key;
 
                 return (
                   <li
@@ -585,11 +696,88 @@ export default function ManageClass() {
                       <div className="flex shrink-0 items-center gap-1">
                         <Popover
                           trigger="click"
+                          open={isTeacherOpen}
+                          onOpenChange={(visible) => {
+                            if (!userId) return;
+                            if (visible) {
+                              setTeacherOpenKey(key);
+                              setTeacherSelection(teacherSlugs);
+                              setDeleteOpenKey("");
+                              setDeleteConfirmText("");
+                            } else if (isTeacherOpen) {
+                              setTeacherOpenKey("");
+                              setTeacherSelection([]);
+                            }
+                          }}
+                          content={
+                            <div className="flex w-80 flex-col gap-2">
+                              <div className="text-sm text-gray-800">
+                                Droits teacher 
+                              </div>
+                              <Checkbox.Group
+                                options={repertoireOptions}
+                                value={teacherSelection}
+                                onChange={(values) =>
+                                  setTeacherSelection(
+                                    Array.isArray(values) ? values : [],
+                                  )
+                                }
+                                disabled={isTeacherSaving || repertoiresLoading}
+                              />
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="small"
+                                  onClick={() => {
+                                    setTeacherOpenKey("");
+                                    setTeacherSelection([]);
+                                  }}
+                                  disabled={isTeacherSaving}
+                                >
+                                  Annuler
+                                </Button>
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  loading={isTeacherSaving}
+                                  disabled={repertoiresLoading}
+                                  onClick={() => handleSaveTeachers(st, key)}
+                                >
+                                  Valider
+                                </Button>
+                              </div>
+                            </div>
+                          }
+                        >
+                          <Tooltip
+                            title={
+                              userId
+                                ? "Gérer les droits teacher"
+                                : "Aucun compte utilisateur associé"
+                            }
+                            mouseEnterDelay={0.3}
+                          >
+                            <Button
+                              size="small"
+                              icon={
+                                <UserOutlined
+                                  style={{ color: isTeacher ? "#ff4d4f" : undefined }}
+                                />
+                              }
+                              disabled={!userId}
+                              loading={isTeacherSaving}
+                            />
+                          </Tooltip>
+                        </Popover>
+
+                        <Popover
+                          trigger="click"
                           open={isDeleteOpen}
                           onOpenChange={(visible) => {
                             if (visible) {
                               setDeleteOpenKey(key);
                               setDeleteConfirmText("");
+                              setTeacherOpenKey("");
+                              setTeacherSelection([]);
                             } else if (isDeleteOpen) {
                               setDeleteOpenKey("");
                               setDeleteConfirmText("");

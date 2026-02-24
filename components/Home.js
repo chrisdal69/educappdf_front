@@ -29,10 +29,23 @@ const App = ({ repertoire }) => {
   const { data, status, error } = useSelector((state) => state.cardsMaths);
   const activeClassId = useSelector((state) => state.auth?.user?.classId);
   const loadedClassId = useSelector((state) => state.cardsMaths.data?.__classId);
-  const repertoiresFromDb = Array.isArray(data?.repertoires) ? data.repertoires : [];
-  const cardsFiltre = Array.isArray(data?.result) ? data.result : [];
+  const repertoiresFromDb = useMemo(
+    () => (Array.isArray(data?.repertoires) ? data.repertoires : []),
+    [data?.repertoires],
+  );
+  const cardsFiltre = useMemo(
+    () => (Array.isArray(data?.result) ? data.result : []),
+    [data?.result],
+  );
   const activeSlug = toSlug(repertoire);
-  const cards = cardsFiltre.filter((obj) => toSlug(obj?.repertoire) === activeSlug);
+  const cards = useMemo(
+    () => cardsFiltre.filter((obj) => toSlug(obj?.repertoire) === activeSlug),
+    [activeSlug, cardsFiltre],
+  );
+  const cardsSignature = useMemo(
+    () => cards.map((card, idx) => String(card?._id || card?.num || idx)).join("|"),
+    [cards],
+  );
   const repertoireBgColor = useMemo(() => {
     if (!activeSlug) return null;
     const match = repertoiresFromDb.find(
@@ -61,7 +74,7 @@ const App = ({ repertoire }) => {
       }
       return next;
     });
-  }, [cards]);
+  }, [cardsSignature]);
 
   useEffect(() => {
     if (!activeClassId) {
@@ -70,11 +83,12 @@ const App = ({ repertoire }) => {
 
     const isStaleClass = String(loadedClassId || "") !== String(activeClassId);
     const isStaleSource = String(data?.__source || "") !== "public";
-    if (
-      status === "idle" ||
-      isStaleSource ||
-      (status === "succeeded" && isStaleClass)
-    ) {
+    if (status === "idle") {
+      dispatch(fetchCardsMaths());
+      return;
+    }
+
+    if (status === "succeeded" && (isStaleSource || isStaleClass)) {
       dispatch(fetchCardsMaths());
     }
   }, [activeClassId, data?.__source, dispatch, loadedClassId, status]);

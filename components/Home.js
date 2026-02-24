@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Layout, theme, Button } from "antd";
 import { CloseOutlined } from "@ant-design/icons";
 const { Content } = Layout;
@@ -29,9 +29,19 @@ const App = ({ repertoire }) => {
   const { data, status, error } = useSelector((state) => state.cardsMaths);
   const activeClassId = useSelector((state) => state.auth?.user?.classId);
   const loadedClassId = useSelector((state) => state.cardsMaths.data?.__classId);
+  const repertoiresFromDb = Array.isArray(data?.repertoires) ? data.repertoires : [];
   const cardsFiltre = Array.isArray(data?.result) ? data.result : [];
   const activeSlug = toSlug(repertoire);
   const cards = cardsFiltre.filter((obj) => toSlug(obj?.repertoire) === activeSlug);
+  const repertoireBgColor = useMemo(() => {
+    if (!activeSlug) return null;
+    const match = repertoiresFromDb.find(
+      (rep) => toSlug(rep?.repertoire) === activeSlug
+    );
+    const color = typeof match?.bgcolor === "string" ? match.bgcolor.trim() : "";
+    return color || null;
+  }, [activeSlug, repertoiresFromDb]);
+  const layoutBgColor = repertoireBgColor || colorBgLayout;
 
   const [resetSignals, setResetSignals] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
@@ -160,8 +170,8 @@ const App = ({ repertoire }) => {
       <Content>
         <LayoutGroup>
           <div
-            style={{
-              background: colorBgLayout,
+           style={{
+              background: layoutBgColor,
               minHeight: 20,
               paddingTop: 10,
               borderRadius: borderRadiusLG,
@@ -242,8 +252,8 @@ const App = ({ repertoire }) => {
           </div>
           <div
             ref={cardsGridRef}
-            style={{
-              background: colorBgLayout,
+             style={{
+              background: layoutBgColor,
               minHeight: 20,
               borderRadius: borderRadiusLG,
               marginTop: 0,

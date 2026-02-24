@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Layout, theme, Button, message } from "antd";
 const { Content } = Layout;
 import Card from "./Card";
@@ -41,8 +41,19 @@ const App = ({ nomRepertoire }) => {
     return response;
   };
   const data = useSelector((state) => state.cardsMaths.data);
+  const repertoiresFromDb = Array.isArray(data?.repertoires) ? data.repertoires : [];
   const cardsFiltre = Array.isArray(data?.result) ? data.result : [];
   const cards = cardsFiltre.filter((obj) => obj.repertoire === nomRepertoire);
+  const repertoireBgColor = useMemo(() => {
+    const target = typeof nomRepertoire === "string" ? nomRepertoire.trim() : "";
+    if (!target) return null;
+    const match = repertoiresFromDb.find(
+      (rep) => String(rep?.repertoire || "").trim() === target
+    );
+    const color = typeof match?.bgcolor === "string" ? match.bgcolor.trim() : "";
+    return color || null;
+  }, [nomRepertoire, repertoiresFromDb]);
+  const layoutBgColor = repertoireBgColor || colorBgLayout;
 
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -182,7 +193,7 @@ const App = ({ nomRepertoire }) => {
       <Content>
         <div
           style={{
-            background: colorBgLayout,
+            background: layoutBgColor,
             minHeight: 20,
             borderRadius: borderRadiusLG,
             marginTop: 0,

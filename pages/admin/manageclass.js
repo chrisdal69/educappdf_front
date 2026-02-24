@@ -3,7 +3,13 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
 import { Button, Checkbox, Input, Popover, Radio, Upload, message } from "antd";
-import { DeleteOutlined, UploadOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  UploadOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import Tooltip from "../../components/admin/card/TooltipClickClose";
 import { handleAuthError, throwIfUnauthorized } from "../../utils/auth";
@@ -49,6 +55,8 @@ export default function ManageClass() {
   const [teacherOpenKey, setTeacherOpenKey] = useState("");
   const [teacherSelection, setTeacherSelection] = useState([]);
   const [teacherLoadingKey, setTeacherLoadingKey] = useState("");
+  const [exceptionVisibleUserIds, setExceptionVisibleUserIds] = useState([]);
+  const [exceptionVisibleLoadingKey, setExceptionVisibleLoadingKey] = useState("");
 
   const from = Array.isArray(router.query?.from)
     ? router.query.from[0]
@@ -94,6 +102,9 @@ export default function ManageClass() {
         return;
       }
       setStudents(Array.isArray(payload?.students) ? payload.students : []);
+      setExceptionVisibleUserIds(
+        Array.isArray(payload?.exceptionvisible) ? payload.exceptionvisible : []
+      );
     } catch (err) {
       const handled = handleAuthError(err, { dispatch, router });
       if (!handled) setErrorMessage("Erreur serveur.");
@@ -170,6 +181,13 @@ export default function ManageClass() {
 
     return map;
   }, [repertoires]);
+
+  const exceptionVisibleSet = useMemo(() => {
+    const ids = Array.isArray(exceptionVisibleUserIds)
+      ? exceptionVisibleUserIds
+      : [];
+    return new Set(ids.filter(Boolean).map((id) => String(id)));
+  }, [exceptionVisibleUserIds]);
 
   const fetchClassCode = useCallback(async () => {
     if (!canManage) return;
@@ -339,6 +357,12 @@ export default function ManageClass() {
       setStudents((prev) =>
         prev.filter((st) => String(st?.studentId) !== studentKey),
       );
+      const removedUserId = student?.userId ? String(student.userId) : "";
+      if (removedUserId) {
+        setExceptionVisibleUserIds((prev) =>
+          prev.filter((id) => String(id) !== removedUserId),
+        );
+      }
       setDeleteOpenKey("");
       setDeleteConfirmText("");
     } catch (err) {
@@ -381,6 +405,49 @@ export default function ManageClass() {
       if (!handled) setErrorMessage("Erreur serveur.");
     } finally {
       setTeacherLoadingKey("");
+    }
+  };
+
+  const handleToggleExceptionVisible = async (studentId, userId, key) => {
+    const resolvedStudentId = studentId ? String(studentId) : "";
+    const resolvedUserId = userId ? String(userId) : "";
+    if (!resolvedStudentId && !resolvedUserId) return;
+
+    setExceptionVisibleLoadingKey(key);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(
+        `${urlFetch}/users/admin/class/${classId}/exceptionvisible`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            studentId: resolvedStudentId,
+            userId: resolvedUserId,
+          }),
+        },
+      );
+      throwIfUnauthorized(res);
+      const payload = await res.json();
+      if (!res.ok) {
+        setErrorMessage(payload?.message || "Erreur lors de la mise à jour.");
+        return;
+      }
+
+      setExceptionVisibleUserIds(
+        Array.isArray(payload?.exceptionvisible) ? payload.exceptionvisible : [],
+      );
+      message.success(
+        payload?.enabled
+          ? "Exception visibilité activée."
+          : "Exception visibilité désactivée.",
+      );
+    } catch (err) {
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) setErrorMessage("Erreur serveur.");
+    } finally {
+      setExceptionVisibleLoadingKey("");
     }
   };
 
@@ -671,12 +738,17 @@ export default function ManageClass() {
                   `${st?.nom || ""} ${st?.prenom || ""}`.trim();
                 const isDeleteOpen = deleteOpenKey === key;
                 const isDeleting = deleteLoadingKey === key;
+                const studentId = st?.studentId ? String(st.studentId) : "";
                 const userId = st?.userId ? String(st.userId) : "";
                 const teacherSet = userId ? teacherSlugsByUserId.get(userId) : null;
                 const teacherSlugs = teacherSet ? [...teacherSet] : [];
                 const isTeacher = teacherSlugs.length > 0;
                 const isTeacherOpen = teacherOpenKey === key;
                 const isTeacherSaving = teacherLoadingKey === key;
+                const isExceptionVisible =
+                  !!userId && exceptionVisibleSet.has(String(userId));
+                const isExceptionVisibleLoading =
+                  exceptionVisibleLoadingKey === key;
 
                 return (
                   <li
@@ -694,6 +766,40 @@ export default function ManageClass() {
                       </div>
 
                       <div className="flex shrink-0 items-center gap-1">
+                        <Tooltip
+                          title={
+                            !userId
+                              ? "Utilisateur non inscrit"
+                              : isExceptionVisible
+                                ? "Retirer l'exception visibilité"
+                                : "Autoriser l'accès aux fichiers cachés"
+                          }
+                          mouseEnterDelay={0.3}
+                        >
+                          <Button
+                            size="small"
+                            icon={
+                              !userId ? (
+                                <EyeOutlined style={{ color: "#d9d9d9" }} />
+                              ) : isExceptionVisible ? (
+                                <EyeOutlined style={{ color: "#ff4d4f" }} />
+                              ) : (
+                                <EyeInvisibleOutlined />
+                              )
+                            }
+                            disabled={!userId}
+                            loading={isExceptionVisibleLoading}
+                            onClick={() => {
+                              if (!userId) return;
+                              setTeacherOpenKey("");
+                              setTeacherSelection([]);
+                              setDeleteOpenKey("");
+                              setDeleteConfirmText("");
+                              handleToggleExceptionVisible(studentId, userId, key);
+                            }}
+                          />
+                        </Tooltip>
+
                         <Popover
                           trigger="click"
                           open={isTeacherOpen}

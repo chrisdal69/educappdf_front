@@ -4,7 +4,14 @@ import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import { Tooltip } from "antd";
 
-export default function FilesBlock({ num, repertoire, fichiers, bg, isExpanded }) {
+export default function FilesBlock({
+  num,
+  repertoire,
+  fichiers,
+  bg,
+  isExpanded,
+  canSeeHiddenFiles,
+}) {
   const parseInlineKatex = (input) => {
     const tokens = [];
     const text = String(input ?? "");
@@ -295,7 +302,9 @@ export default function FilesBlock({ num, repertoire, fichiers, bg, isExpanded }
 
   const blurBg = useMemo(() => (bg ? toBlurFile(bg) : ""), [bg]);
   const showBackground = Boolean(isExpanded && bg);
-  const fichiersFiltered = (fichiers || []).filter((elt) => elt.visible);
+  const fichiersFiltered = canSeeHiddenFiles
+    ? (fichiers || []).filter(Boolean)
+    : (fichiers || []).filter((elt) => elt && elt.visible);
   const tab = fichiersFiltered.map((elt, idx) => {
     const name =
       elt.txt || elt.name || elt.label || elt.href || `fichier-${idx}`;
@@ -362,7 +371,12 @@ export default function FilesBlock({ num, repertoire, fichiers, bg, isExpanded }
           />
         </>
       )}
-      <div className="relative z-20 p-4">
+       <div className="relative z-20 p-4">
+        {canSeeHiddenFiles ? (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            Exception : fichiers cachés visibles.
+          </div>
+        ) : null}
         {tab && tab.length > 0 ? (
           <ul className="list-none m-0 p-0 divide-y divide-gray-100">
             {tab}

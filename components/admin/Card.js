@@ -50,6 +50,9 @@ const CardBlock = (data) => {
   const router = useRouter();
   const cardsData = useSelector((state) => state.cardsMaths.data);
   const { isAuthenticated } = useSelector((state) => state.auth);
+  const classeDirectoryname = useSelector(
+    (state) => state.auth?.user?.directoryname || ""
+  );
   const authFetch = async (url, options) => {
     const response = await fetch(url, options);
     throwIfUnauthorized(response);
@@ -465,19 +468,19 @@ const CardBlock = (data) => {
   ];
   const visibleTabList = tabList.filter(Boolean);
   const contentList = {
-    contenu: <ContentBlock {...data} />,
-    fichiers: <FilesBlock {...data} />,
-    quizz: <Quizz {...data} />,
-    quizzResult: <QuizzResult {...data} />,
-    flash: <FlashBlock {...data} />,
+    contenu: <ContentBlock {...data} classeDirectoryname={classeDirectoryname} />,
+    fichiers: <FilesBlock {...data} classeDirectoryname={classeDirectoryname} />,
+    quizz: <Quizz {...data} classeDirectoryname={classeDirectoryname} />,
+    quizzResult: <QuizzResult {...data} classeDirectoryname={classeDirectoryname} />,
+    flash: <FlashBlock {...data} classeDirectoryname={classeDirectoryname} />,
   };
 
   if (data.video) {
-    contentList.video = <VideoBlock {...data} />;
+    contentList.video = <VideoBlock {...data} classeDirectoryname={classeDirectoryname} />;
   }
 
   if (isAuthenticated && isCloudEnabled) {
-    contentList.cloud = <CloudBlock {...data} />;
+    contentList.cloud = <CloudBlock {...data} classeDirectoryname={classeDirectoryname} />;
   }
 
   const cardsList =

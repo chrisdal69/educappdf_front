@@ -23,6 +23,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
 import Tooltip from "./TooltipClickClose";
+import { buildCardBaseUrl } from "../../../utils/gcsPaths";
 import {
   createEditor,
   Editor,
@@ -201,6 +202,7 @@ export default function Contenu({
   id,
   num,
   repertoire,
+  classeDirectoryname,
   content,
   contentVersion,
   bg,
@@ -234,9 +236,7 @@ export default function Contenu({
     setLocalBg(nextBg);
   }, [bg]);
 
-  const racine = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
+  const racine = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
 
   const toBlurFile = (filename) => {
     const lastDot = filename.lastIndexOf(".");

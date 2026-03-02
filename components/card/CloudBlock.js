@@ -34,6 +34,7 @@ import {
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { clearAuth } from "../../reducers/authSlice";
+import { buildCardBaseUrl } from "../../utils/gcsPaths";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -47,7 +48,7 @@ const stripPrefix = (name = "") => {
   return parts.length > 1 ? parts.slice(1).join("___") : name;
 };
 
-const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
+const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded }) => {
   const [form] = Form.useForm();
   const [upload, setUpload] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -72,9 +73,7 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
     if (lastDot === -1) return `${filename}Blur`;
     return `${filename.slice(0, lastDot)}Blur${filename.slice(lastDot)}`;
   };
-  const bgRoot = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
+  const bgRoot = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
   const blurBg = bg ? toBlurFile(bg) : "";
   const showBackground = Boolean(isExpanded && bg);
   useEffect(() => {

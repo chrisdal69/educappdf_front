@@ -35,6 +35,9 @@ const CardBlock = (data) => {
     }
   };
   const { isAuthenticated } = useSelector((state) => state.auth);
+  const classeDirectoryname = useSelector(
+    (state) => state.auth?.user?.directoryname || ""
+  );
 
   useEffect(() => {
     !isAuthenticated && activeTabKey === "cloud" && setActiveTabKey("contenu");
@@ -69,18 +72,18 @@ const CardBlock = (data) => {
   ].filter(Boolean); // <-- indispensable pour retirer les false/undefined
 
   const contentList = {
-    contenu: <ContentBlock {...data} />,
+    contenu: <ContentBlock {...data} classeDirectoryname={classeDirectoryname} />,
   };
 
   if (data.fichiers && data.fichiers.length != 0) {
-    contentList.fichiers = <FilesBlock {...data} />;
+    contentList.fichiers = <FilesBlock {...data} classeDirectoryname={classeDirectoryname} />;
   }
 
   if (data.video && data.video.length != 0) {
-    contentList.video = <VideoBlock {...data} />;
+    contentList.video = <VideoBlock {...data} classeDirectoryname={classeDirectoryname} />;
   }
   if (isAuthenticated) {
-    contentList.cloud = <CloudBlock {...data} />;
+    contentList.cloud = <CloudBlock {...data} classeDirectoryname={classeDirectoryname} />;
   }
   if (
     (data.evalQuizz === "non" ||
@@ -88,11 +91,11 @@ const CardBlock = (data) => {
     data.quizz &&
     data.quizz.length != 0
   ) {
-    contentList.quizz = <Quizz {...data} />;
+    contentList.quizz = <Quizz {...data} classeDirectoryname={classeDirectoryname} />;
   }
 
   if (data.flash && data.flash.length != 0) {
-    contentList.flash = <FlashBlock {...data} />;
+    contentList.flash = <FlashBlock {...data} classeDirectoryname={classeDirectoryname} />;
   }
 
   const iscontenu = activeTabKey === "contenu";

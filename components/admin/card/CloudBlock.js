@@ -39,6 +39,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import Tooltip from "./TooltipClickClose";
 import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
+import { buildCardBaseUrl } from "../../../utils/gcsPaths";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -48,7 +49,7 @@ const { Dragger } = Upload;
 const { Text } = Typography;
 const { Option } = Select;
 
-const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
+const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded }) => {
   const [form] = Form.useForm();
   const [upload, setUpload] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -84,9 +85,7 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
     if (lastDot === -1) return `${filename}Blur`;
     return `${filename.slice(0, lastDot)}Blur${filename.slice(lastDot)}`;
   };
-  const bgRoot = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
+  const bgRoot = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
   const blurBg = bg ? toBlurFile(bg) : "";
   const isExpanded = expanded !== false;
   const showBackground = Boolean(isExpanded && bg);

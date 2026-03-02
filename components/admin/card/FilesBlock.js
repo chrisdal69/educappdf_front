@@ -28,6 +28,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
+import { buildCardBaseUrl } from "../../../utils/gcsPaths";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import Tooltip from "./TooltipClickClose";
 
@@ -354,6 +355,7 @@ const HandIcon = ({ className = "inline-block" }) => (
 export default function FilesBlock({
   num,
   repertoire,
+  classeDirectoryname,
   fichiers,
   _id,
   id,
@@ -399,9 +401,7 @@ export default function FilesBlock({
     setLocalFiles(Array.isArray(fichiers) ? fichiers : []);
   }, [fichiers]);
 
-  const racine = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
+  const racine = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
   const toBlurFile = (filename = "") => {
     const lastDot = filename.lastIndexOf(".");
     if (lastDot === -1) return `${filename}Blur`;
@@ -1562,7 +1562,7 @@ export default function FilesBlock({
               {isReplacing && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70">
                   <ClimbingBoxLoader
-                    color="#2563eb"
+                    color="#6C6C6C"
                     size={14}
                     speedMultiplier={1}
                   />
@@ -1729,7 +1729,7 @@ export default function FilesBlock({
           {isSubmitting && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70">
               <ClimbingBoxLoader
-                color="#2563eb"
+                color="#6C6C6C"
                 size={14}
                 speedMultiplier={1}
               />

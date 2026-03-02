@@ -3,10 +3,12 @@ import { Button, Card, Carousel } from "antd";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import Flip from "./Flip";
+import { buildCardBaseUrl } from "../../utils/gcsPaths";
 
 export default function FlashBlock({
   num,
   repertoire,
+  classeDirectoryname,
   flash,
   bg,
   isExpanded,
@@ -16,12 +18,9 @@ export default function FlashBlock({
 
   const [current, setCurrent] = useState(0);
 
-  const bgRoot = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
-  const racine = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/imagesFlash/`;
+  const baseUrl = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
+  const bgRoot = baseUrl;
+  const racine = baseUrl ? `${baseUrl}imagesFlash/` : "";
 
   const toBlurFile = (filename) => {
     const lastDot = filename.lastIndexOf(".");

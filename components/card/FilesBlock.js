@@ -3,10 +3,12 @@ import Image from "next/image";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import { Tooltip } from "antd";
+import { buildCardBaseUrl } from "../../utils/gcsPaths";
 
 export default function FilesBlock({
   num,
   repertoire,
+  classeDirectoryname,
   fichiers,
   bg,
   isExpanded,
@@ -290,9 +292,7 @@ export default function FilesBlock({
       </svg>
     );
   };
-  const racine = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
+  const racine = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
 
   const toBlurFile = (filename) => {
     const lastDot = filename.lastIndexOf(".");

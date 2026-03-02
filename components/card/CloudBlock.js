@@ -116,7 +116,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
       return;
     }
     formData.append("parent", "cloud");
-    formData.append("repertoire", `${repertoire}tag${num}`);
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
 
     values.files?.forEach((fileWrapper) => {
       formData.append("fichiers", fileWrapper.originFileObj);
@@ -171,7 +172,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
   const onRecup = async () => {
     const formData = new FormData();
     formData.append("parent", "cloud");
-    formData.append("repertoire", `${repertoire}tag${num}`);
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
     try {
       const res = await fetch(`${urlFetch}/upload/recup`, {
         method: "POST",
@@ -260,7 +262,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
+          repertoire: `${repertoire}`,
+          num: `${num}`,
           file: fileName,
         }),
         headers: { "Content-Type": "application/json" },
@@ -298,7 +301,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
+          repertoire: `${repertoire}`,
+          num: `${num}`,
           oldName: file.name.split("/").pop(),
           newName,
         }),
@@ -646,8 +650,10 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
                 const shortName = stripPrefix(fileName || "");
                 const downloadUrl = fileName
                   ? `${urlFetch}/upload/download?parent=cloud&repertoire=${encodeURIComponent(
-                      `${repertoire}tag${num}`
-                    )}&file=${encodeURIComponent(fileName)}`
+                      `${repertoire}`
+                    )}&num=${encodeURIComponent(`${num}`)}&file=${encodeURIComponent(
+                      fileName
+                    )}`
                   : file.url;
                 const isRenameOpen = renameVisible === index;
                 const isDeleteOpen = deleteVisible === index;

@@ -125,7 +125,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
       return;
     }
     formData.append("parent", "cloud");
-    formData.append("repertoire", `${repertoire}tag${num}`);
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
 
     values.files?.forEach((fileWrapper) => {
       formData.append("fichiers", fileWrapper.originFileObj);
@@ -171,7 +172,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
   const onRecup = async () => {
     const formData = new FormData();
     formData.append("parent", "cloud");
-    formData.append("repertoire", `${repertoire}tag${num}`);
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
     try {
       const res = await authFetch(`${urlFetch}/upload/recupA`, {
         method: "POST",
@@ -193,7 +195,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
+          repertoire: `${repertoire}`,
+          num: `${num}`,
           file: fileName,
         }),
         headers: { "Content-Type": "application/json" },
@@ -239,7 +242,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
+          repertoire: `${repertoire}`,
+          num: `${num}`,
           oldName: file.name.split("/").pop(),
           newName,
         }),
@@ -337,10 +341,11 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
-        }),
+          body: JSON.stringify({
+            parent: "cloud",
+            repertoire: `${repertoire}`,
+            num: `${num}`,
+          }),
       });
       if (!res.ok) {
         let errorMessage = "Impossible de générer l'archive ZIP";

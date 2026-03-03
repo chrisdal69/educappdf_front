@@ -76,14 +76,14 @@ export default function Account(props) {
         </Link>
         <Link
           href={leaveClassHref}
-          className="inline-block py-2 px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-primary"
+          className="inline-block py-2 px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-amber-400"
           onClick={() => props.close()}
         >
           Se désinscrire de la classe de {user?.publicname}
         </Link>
         <Link
           href="/deleteaccount"
-          className="inline-block px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-primary"
+          className="inline-block px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-red-500"
           onClick={() => props.close()}
         >
           Supprimer mon compte MathsApp

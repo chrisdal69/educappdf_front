@@ -53,6 +53,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
   const [form] = Form.useForm();
   const [upload, setUpload] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const classId = user?.classId ? String(user.classId) : "";
   const [filesCloud, setFilesCloud] = useState([]);
   const [zipLoading, setZipLoading] = useState(false);
   const [scrollExpanded, setScrollExpanded] = useState(false);
@@ -292,10 +293,11 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
 
     setMessageSending(true);
     try {
-    const res = await authFetch(`${urlFetch}/cards/cloud`, {
+      const res = await authFetch(`${urlFetch}/cards/cloud`, {
         method: "POST",
         body: JSON.stringify({
           id_card: _id,
+          id_classe: classId,
           prefix: trimmedPrefix,
           message: trimmedText,
           filename: trimmedFilename,

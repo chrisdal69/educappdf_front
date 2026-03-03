@@ -52,6 +52,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
   const [form] = Form.useForm();
   const [upload, setUpload] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const classId = user?.classId ? String(user.classId) : "";
   const [filesCloud, setFilesCloud] = useState([]);
   const [listMessage, setListMessage] = useState([]);
   // Filtres / tri
@@ -105,7 +106,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
 
   useEffect(() => {
     if (isAuthenticated) onRecupMessages();
-  }, [isAuthenticated, _id]);
+  }, [isAuthenticated, _id, classId]);
 
   const onFinish = async (values) => {
     setUpload(true);
@@ -192,7 +193,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
     if (!_id) return;
     try {
       const res = await fetch(
-        `${urlFetch}/cards/cloud?id_card=${encodeURIComponent(_id)}`,
+        `${urlFetch}/cards/cloud?id_card=${encodeURIComponent(_id)}&classId=${encodeURIComponent(classId)}`,
         {
           method: "GET",
           credentials: "include",

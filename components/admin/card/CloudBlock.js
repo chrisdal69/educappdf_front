@@ -267,11 +267,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
     setRenameVisible(null);
   };
 
-  const handleSendMessage = async ({ nom, prenom, text, filename }) => {
-    const normalizedNom =
-      typeof nom === "string" ? nom.trim().toUpperCase() : "";
-    const normalizedPrenom =
-      typeof prenom === "string" ? prenom.trim().toLowerCase() : "";
+  const handleSendMessage = async ({ prefix, text, filename }) => {
+    const trimmedPrefix = typeof prefix === "string" ? prefix.trim() : "";
     const trimmedText = typeof text === "string" ? text.trim() : "";
     const trimmedFilename =
       typeof filename === "string" ? filename.trim() : "";
@@ -280,8 +277,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
       message.error("Id de carte manquant.");
       return;
     }
-    if (!normalizedNom || !normalizedPrenom) {
-      message.error("Nom ou prenom introuvable pour ce fichier.");
+    if (!trimmedPrefix) {
+      message.error("Prefix introuvable pour ce fichier.");
       return;
     }
     if (!trimmedText) {
@@ -299,8 +296,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
         method: "POST",
         body: JSON.stringify({
           id_card: _id,
-          nom: normalizedNom,
-          prenom: normalizedPrenom,
+          prefix: trimmedPrefix,
           message: trimmedText,
           filename: trimmedFilename,
         }),
@@ -567,9 +563,9 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
       )}
 
       {isAuthenticated && (
-        <Form form={form} onFinish={onFinish} className="upload-form">
+        <Form form={form} onFinish={onFinish} className="upload-form ">
           {/* 🎛️ Filtres */}
-          <div className="mb-6 flex flex-wrap gap-3 items-center justify-center md:justify-start">
+          <div className="mb-6 mt-2 flex flex-wrap gap-3 items-center justify-center md:justify-start">
             <Input
               placeholder="Rechercher un fichier..."
               value={searchTerm}
@@ -670,9 +666,8 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
                 const isDeleteOpen = deleteVisible === index;
                 const isMessageOpen = messageVisible === index;
 
-                const nomPrenom = fullName.split("___")[0] ?? "";
-                const [nom, prenom] = splitMajMin(nomPrenom);
-                const reduceName = fullName.split("___")[1] ?? "";
+                const ownerPrefix = fullName.split("___")[0] ?? "";
+                const reduceName = fullName.split("___").slice(1).join("___") ?? "";
 
                 return (
                   <List.Item className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 px-2 py-1 border-b border-gray-100 last:border-b-0">
@@ -746,7 +741,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
                               rows={5}
                               value={messageText}
                               onChange={(e) => setMessageText(e.target.value)}
-                              placeholder= {`message à ${nom} ${prenom}`}
+                              placeholder= {`message à ${ownerPrefix}`}
                               style={{ width: "min(600px, 85vw)" }}
                               disabled={messageSending}
                             />
@@ -762,8 +757,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
                                   loading={messageSending}
                                   onClick={() =>
                                     handleSendMessage({
-                                      nom,
-                                      prenom,
+                                      prefix: ownerPrefix,
                                       text: messageText,
                                       filename: reduceName,
                                     })

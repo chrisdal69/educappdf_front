@@ -20,7 +20,8 @@ export default function Account(props) {
     fromPath === "/" ? "/changepassword?from=home" : "/changepassword";
   const manageClass =
     fromPath === "/" ? "/admin/manageclass?from=home" : "/admin/manageclass";
-
+  const changeEmailHref =
+    fromPath === "/" ? "/changemail?from=home" : "/changemail";
   const handleLogout = async () => {
     try {
       const res = await fetch(`${urlFetch}/auth/logout`, {
@@ -48,9 +49,6 @@ export default function Account(props) {
     }
   };
 
-
-
-
   return (
     <div className="max-w-md mx-auto mt-10 rounded-xl shadow-2xl p-6 bg-bg text-center">
       <h2 className="text-2xl font-semibold mb-6">Mon compte</h2>
@@ -64,7 +62,7 @@ export default function Account(props) {
 
       <button
         onClick={handleLogout}
-            className="w-full py-3 text-lg rounded-lg bg-gray-800 text-gray-100 font-semibold hover:bg-red-800 hover:text-white disabled:bg-gray-300"
+        className="w-full py-3 text-lg rounded-lg bg-gray-800 text-gray-100 font-semibold hover:bg-red-800 hover:text-white disabled:bg-gray-300"
       >
         Logout
       </button>
@@ -83,6 +81,13 @@ export default function Account(props) {
           onClick={() => props.close()}
         >
           Gérer ma classe
+        </Link>
+        <Link
+          href={changeEmailHref}
+          className="inline-block  px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-amber-400"
+          onClick={() => props.close()}
+        >
+          Changer son email
         </Link>
       </div>
     </div>

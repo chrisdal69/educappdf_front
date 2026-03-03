@@ -18,6 +18,8 @@ export default function Account(props) {
   const fromPath = (router.asPath || "/").split("?")[0];
   const changePasswordHref =
     fromPath === "/" ? "/changepassword?from=home" : "/changepassword";
+  const changeEmailHref =
+    fromPath === "/" ? "/changemail?from=home" : "/changemail";
   const leaveClassHref =
     fromPath === "/" ? "/leaveclass?from=home" : "/leaveclass";
 
@@ -61,7 +63,7 @@ export default function Account(props) {
 
       <button
         onClick={handleLogout}
-            className="w-full py-3 text-lg rounded-lg bg-gray-800 text-gray-100 font-semibold hover:bg-red-800 hover:text-white disabled:bg-gray-300"
+        className="w-full py-3 text-lg rounded-lg bg-gray-800 text-gray-100 font-semibold hover:bg-red-800 hover:text-white disabled:bg-gray-300"
       >
         Logout
       </button>
@@ -73,6 +75,13 @@ export default function Account(props) {
           onClick={() => props.close()}
         >
           Changer le mot de passe
+        </Link>
+         <Link
+          href={changeEmailHref}
+          className="inline-block pt-2 px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-amber-400"
+          onClick={() => props.close()}
+        >
+          Changer son email
         </Link>
         <Link
           href={leaveClassHref}

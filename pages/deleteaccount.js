@@ -59,6 +59,9 @@ export default function DeleteAccount() {
       const json = await res.json().catch(() => ({}));
 
       if (res.ok) {
+        if (json?.cleanup) {
+          console.log("delete-account cleanup:", json.cleanup);
+        }
         setMessage(json.message || "Suppression de compte réalisée");
         dispatch(clearAuth());
         dispatch(setCardsMaths([]));

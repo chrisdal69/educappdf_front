@@ -64,6 +64,9 @@ export default function LeaveClass() {
 
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
+        if (json?.cleanup) {
+          console.log("leave-class cleanup:", json.cleanup);
+        }
         setMessage(json.message || "Désinscription réalisée");
         dispatch(clearAuth());
         setTimeout(() => router.push("/"), 1200);

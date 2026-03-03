@@ -84,7 +84,7 @@ export default function DeleteAccount() {
         className={`absolute inset-0 z-10 bg-black/25 backdrop-blur-sm transition-opacity duration-300 ${
           isVeilVisible ? "opacity-100" : "opacity-0"
         }`}
-      />
+      /> 
       <div
         className={`relative z-20 w-full max-w-md bg-white shadow-lg rounded-xl p-6 transform-gpu origin-top-right transition-transform transition-opacity duration-1000 ease-out motion-reduce:transition-none motion-reduce:transform-none ${
           isCardVisible

@@ -50,7 +50,7 @@ export default function LeaveClass() {
       setMessage("Classe introuvable. Merci de te reconnecter.");
       return;
     }
-
+ 
     setIsLoading(true);
     setMessage("");
 

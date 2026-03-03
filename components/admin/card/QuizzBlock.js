@@ -1159,7 +1159,7 @@ export default function Quizz({
       )}
       {actionKey && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-white/60">
-          <ClimbingBoxLoader color="#2563eb" size={12} />
+          <ClimbingBoxLoader color="#6C6C6C" size={12} />
         </div>
       )}
 

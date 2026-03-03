@@ -122,8 +122,9 @@ export default function Quizz({
   const bgRoot = baseUrl;
 
   
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
   const cardId = _id || id;
+  const classId = user?.classId ? String(user.classId) : "";
 
   const toBlurFile = (filename) => {
     const lastDot = filename.lastIndexOf(".");
@@ -452,7 +453,7 @@ export default function Quizz({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ cardId, reponses }),
+        body: JSON.stringify({ cardId, reponses, id_classe: classId }),
       });
       const payload = await res.json();
       if (!res.ok) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Layout, theme, Button, Upload, message } from "antd";
+import { Layout, theme, Button, Progress, Upload, message } from "antd";
 import JSZip from "jszip";
 const { Content } = Layout;
 import Card from "./Card";
@@ -59,6 +59,7 @@ const App = ({ nomRepertoire }) => {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [resetSignals, setResetSignals] = useState([]);
   const [expandedKey, setExpandedKey] = useState(null);
@@ -204,6 +205,30 @@ const App = ({ nomRepertoire }) => {
     return "application/octet-stream";
   };
 
+  const uploadToSignedUrlWithProgress = ({ url, blob, contentType, onProgress }) =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", url, true);
+      xhr.setRequestHeader(
+        "Content-Type",
+        contentType || "application/octet-stream"
+      );
+      xhr.upload.onprogress = (event) => {
+        if (typeof onProgress === "function") {
+          onProgress(event);
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error("Upload direct echoue."));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Upload direct echoue."));
+      xhr.send(blob);
+    });
+
   const handleImportCardZip = async (file) => {
     if (!file) return;
     const fileName = file.name || "";
@@ -220,6 +245,7 @@ const App = ({ nomRepertoire }) => {
 
     const importKey = "import-card";
     setImporting(true);
+    setImportProgress({ stage: "zip", current: 0, total: 0, file: "", percent: 0 });
     message.loading({
       content: "Import de la carte en cours...",
       key: importKey,
@@ -270,17 +296,28 @@ const App = ({ nomRepertoire }) => {
         `${entry.name}`.replace(/\\/g, "/").startsWith("files/")
       );
 
+      setImportProgress({
+        stage: "upload",
+        current: 0,
+        total: fileEntries.length,
+        file: "",
+        percent: 0,
+      });
+
       for (let idx = 0; idx < fileEntries.length; idx += 1) {
         const entry = fileEntries[idx];
         const entryName = `${entry.name}`.replace(/\\/g, "/");
         const relativePath = entryName.slice("files/".length);
         if (!relativePath) continue;
 
-        message.loading({
-          content: `Upload ${idx + 1}/${fileEntries.length}...`,
-          key: importKey,
-          duration: 0,
-        });
+        setImportProgress((prev) => ({
+          ...(prev || {}),
+          stage: "upload",
+          current: idx + 1,
+          total: fileEntries.length,
+          file: relativePath,
+          percent: Math.floor(((idx + 0) / Math.max(1, fileEntries.length)) * 100),
+        }));
 
         const blob = await entry.async("blob");
         const contentType = guessContentType(relativePath);
@@ -309,14 +346,28 @@ const App = ({ nomRepertoire }) => {
           throw new Error("URL d'upload manquante.");
         }
 
-        const uploadResponse = await fetch(signedUrl, {
-          method: "PUT",
-          headers: { "Content-Type": signedContentType },
-          body: blob,
+        await uploadToSignedUrlWithProgress({
+          url: signedUrl,
+          blob,
+          contentType: signedContentType,
+          onProgress: (event) => {
+            const totalBytes = event?.total || blob.size || 0;
+            const loadedBytes = event?.loaded || 0;
+            const filePercent =
+              totalBytes > 0 ? Math.floor((loadedBytes / totalBytes) * 100) : 0;
+            const overallPercent = Math.floor(
+              ((idx + filePercent / 100) / Math.max(1, fileEntries.length)) * 100
+            );
+            setImportProgress({
+              stage: "upload",
+              current: idx + 1,
+              total: fileEntries.length,
+              file: relativePath,
+              percent: Math.max(0, Math.min(100, overallPercent)),
+              filePercent: Math.max(0, Math.min(100, filePercent)),
+            });
+          },
         });
-        if (!uploadResponse.ok) {
-          throw new Error("Upload direct echoue.");
-        }
 
         const confirmResponse = await authFetch(
           `${urlFetch}/cards/${createdCardId}/import/confirm`,
@@ -335,6 +386,12 @@ const App = ({ nomRepertoire }) => {
         }
       }
 
+      setImportProgress((prev) => ({
+        ...(prev || {}),
+        stage: "apply",
+        file: "",
+        percent: 100,
+      }));
       const applyResponse = await authFetch(
         `${urlFetch}/cards/${createdCardId}/import/apply`,
         {
@@ -371,6 +428,7 @@ const App = ({ nomRepertoire }) => {
       }
     } finally {
       setImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -417,6 +475,30 @@ const App = ({ nomRepertoire }) => {
               Ajouter une carte
             </Button>
           </div>
+
+          {importing && importProgress && (
+            <div className="w-full max-w-xl">
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>
+                  {importProgress.stage === "upload"
+                    ? `Import: ${importProgress.current}/${importProgress.total}`
+                    : importProgress.stage === "apply"
+                      ? "Application des donnees..."
+                      : "Preparation..."}
+                </span>
+                <span>{importProgress.percent || 0}%</span>
+              </div>
+              <Progress percent={importProgress.percent || 0} size="small" />
+              {importProgress.stage === "upload" && importProgress.file && (
+                <div className="mt-1 text-[11px] text-gray-500 truncate">
+                  {importProgress.file}
+                  {typeof importProgress.filePercent === "number"
+                    ? ` (${importProgress.filePercent}%)`
+                    : ""}
+                </div>
+              )}
+            </div>
+          )}
 
           {loading && (
             <div className="flex flex-col items-center py-10">

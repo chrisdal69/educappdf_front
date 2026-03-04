@@ -1,6 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Card, Button, Input, Popover, Space, Tooltip, message } from "antd";
+import {
+  Card,
+  Button,
+  Input,
+  Popover,
+  Progress,
+  Space,
+  Tooltip,
+  message,
+} from "antd";
 import { useRouter } from "next/router";
 import {
   EditOutlined,
@@ -39,6 +48,7 @@ const CardBlock = (data) => {
   const [isTogglingVisible, setIsTogglingVisible] = useState(false);
   const [isTogglingCloud, setIsTogglingCloud] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(null);
   const [isMoving, setIsMoving] = useState(false);
   const [moveConfirmDirection, setMoveConfirmDirection] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -425,35 +435,146 @@ const CardBlock = (data) => {
     return `${base || "card"}.zip`;
   };
 
+  const exportTickerRef = useRef(null);
+
+  const stopExportTicker = () => {
+    if (exportTickerRef.current) {
+      clearInterval(exportTickerRef.current);
+      exportTickerRef.current = null;
+    }
+  };
+
+  const startExportTicker = () => {
+    stopExportTicker();
+    exportTickerRef.current = setInterval(() => {
+      setExportProgress((prev) => {
+        if (!prev || prev.mode !== "indeterminate") {
+          return prev;
+        }
+        const next = prev.percent >= 90 ? 10 : prev.percent + 10;
+        return { ...prev, percent: next };
+      });
+    }, 300);
+  };
+
+  useEffect(() => {
+    return () => stopExportTicker();
+  }, []);
+
+  const blobToText = (blob) =>
+    new Promise((resolve) => {
+      if (!blob) return resolve("");
+      try {
+        blob
+          .text()
+          .then((t) => resolve(t))
+          .catch(() => resolve(""));
+      } catch (_) {
+        resolve("");
+      }
+    });
+
+  const downloadZipWithProgress = ({ url, onProgress }) =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", url, true);
+      xhr.responseType = "blob";
+      xhr.withCredentials = true;
+
+      let headerTotal = null;
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 2) {
+          const raw = xhr.getResponseHeader("Content-Length");
+          const parsed = Number(raw);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            headerTotal = parsed;
+          }
+        }
+      };
+
+      xhr.onprogress = (event) => {
+        if (typeof onProgress !== "function") return;
+        const loaded = Number(event?.loaded) || 0;
+        const eventTotal = Number(event?.total) || 0;
+        const total = eventTotal > 0 ? eventTotal : headerTotal;
+        const lengthComputable = Boolean(event?.lengthComputable) || Boolean(total);
+        onProgress({ loaded, total: total || 0, lengthComputable });
+      };
+
+      xhr.onload = async () => {
+        const status = xhr.status;
+        const responseBlob = xhr.response;
+        if (status >= 200 && status < 300) {
+          return resolve({
+            blob: responseBlob,
+            disposition: xhr.getResponseHeader("Content-Disposition"),
+          });
+        }
+
+        const error = new Error("Export impossible.");
+        error.status = status;
+        if (status === 401) {
+          error.isAuthError = true;
+        }
+        const text = await blobToText(responseBlob);
+        try {
+          const parsed = JSON.parse(text);
+          error.message = parsed?.error || parsed?.message || error.message;
+        } catch (_) {
+          error.message = text || error.message;
+        }
+        return reject(error);
+      };
+
+      xhr.onerror = () => {
+        reject(new Error("Erreur reseau lors de l'export."));
+      };
+
+      xhr.send();
+    });
+
   const handleExportCard = async () => {
     const cardId = data?._id || data?.id;
     if (!cardId) {
       message.error("Identifiant de carte manquant.");
       return;
     }
-    const exportKey = `export-card-${cardId}`;
-    setIsExporting(true);
-    message.loading({
-      content: "Export de la carte en cours...",
-      key: exportKey,
-      duration: 0,
-    });
-    try {
-      const response = await authFetch(`${urlFetch}/cards/${cardId}/export/zip`, {
-        credentials: "include",
-      });
-      if (!response.ok) {
-        let payload = null;
-        try {
-          payload = await response.json();
-        } catch (_) {}
-        throw new Error(payload?.error || "Impossible d'exporter la carte.");
-      }
 
-      const zipBlob = await response.blob();
-      const headerName = getFileNameFromDisposition(
-        response.headers.get("Content-Disposition")
-      );
+    setIsExporting(true);
+    setExportProgress({
+      mode: "indeterminate",
+      percent: 10,
+      loaded: 0,
+      total: 0,
+    });
+    startExportTicker();
+    try {
+      const download = await downloadZipWithProgress({
+        url: `${urlFetch}/cards/${cardId}/export/zip`,
+        onProgress: ({ loaded, total, lengthComputable }) => {
+          if (lengthComputable && total > 0) {
+            stopExportTicker();
+            const percent = Math.floor((loaded / total) * 100);
+            setExportProgress({
+              mode: "determinate",
+              percent: Math.max(0, Math.min(100, percent)),
+              loaded,
+              total,
+            });
+          } else {
+            setExportProgress((prev) => ({
+              ...(prev || {}),
+              mode: "indeterminate",
+              loaded,
+              total: 0,
+              percent: prev?.percent ?? 10,
+            }));
+          }
+        },
+      });
+
+      const zipBlob = download.blob;
+      const headerName = getFileNameFromDisposition(download.disposition);
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement("a");
       link.href = url;
@@ -463,15 +584,17 @@ const CardBlock = (data) => {
       link.remove();
       URL.revokeObjectURL(url);
 
-      message.success({ content: "Export termine.", key: exportKey });
+      message.success("Export termine.");
     } catch (error) {
       console.error("Erreur export carte", error);
       const handled = handleAuthError(error, { dispatch, router });
       if (!handled) {
-        message.error({ content: "Erreur lors de l'export.", key: exportKey });
+        message.error(error.message || "Erreur lors de l'export.");
       }
     } finally {
       setIsExporting(false);
+      stopExportTicker();
+      setExportProgress(null);
     }
   };
 
@@ -765,6 +888,16 @@ const CardBlock = (data) => {
               icon={<ExportOutlined />}
             />
           </Tooltip>
+          {isExporting && exportProgress && (
+            <div style={{ width: 120 }} title="Export en cours...">
+              <Progress
+                percent={exportProgress.percent || 0}
+                size="small"
+                status="active"
+                showInfo={false}
+              />
+            </div>
+          )}
           <Popover
             placement="bottomRight"
             trigger="click"

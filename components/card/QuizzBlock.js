@@ -7,6 +7,7 @@ import Image from "next/image";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
+import { buildCardBaseUrl } from "../../utils/gcsPaths";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -90,6 +91,7 @@ const renderInlineKatex = (input) => {
 export default function Quizz({
   num,
   repertoire,
+  classeDirectoryname,
   quizz,
   evalQuizz,
   resultatQuizz,
@@ -115,12 +117,14 @@ export default function Quizz({
   const [hasHistory, setHasHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
-  const racine = `https://storage.googleapis.com/${process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"}/${repertoire}/tag${num}/imagesQuizz/`;
-  const bgRoot = `https://storage.googleapis.com/${process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"}/${repertoire}/tag${num}/`;
+  const baseUrl = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
+  const racine = baseUrl ? `${baseUrl}imagesQuizz/` : "";
+  const bgRoot = baseUrl;
 
   
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
   const cardId = _id || id;
+  const classId = user?.classId ? String(user.classId) : "";
 
   const toBlurFile = (filename) => {
     const lastDot = filename.lastIndexOf(".");
@@ -449,7 +453,7 @@ export default function Quizz({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ cardId, reponses }),
+        body: JSON.stringify({ cardId, reponses, id_classe: classId }),
       });
       const payload = await res.json();
       if (!res.ok) {

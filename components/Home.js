@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Layout, theme, Button } from "antd";
 import { CloseOutlined } from "@ant-design/icons";
 const { Content } = Layout;
@@ -9,6 +9,16 @@ import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { fetchCardsMaths } from "../reducers/cardsMathsSlice";
 
 const CARD_MIN_WIDTH = 380;
+const stripAccentsLower = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const toSlug = (value) =>
+  stripAccentsLower(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 const App = ({ repertoire }) => {
   let {
@@ -17,8 +27,34 @@ const App = ({ repertoire }) => {
 
   const dispatch = useDispatch();
   const { data, status, error } = useSelector((state) => state.cardsMaths);
-  const cardsFiltre = Array.isArray(data?.result) ? data.result : [];
-  const cards = cardsFiltre.filter((obj) => obj.repertoire === repertoire);
+  const activeClassId = useSelector((state) => state.auth?.user?.classId);
+  const loadedClassId = useSelector((state) => state.cardsMaths.data?.__classId);
+  const repertoiresFromDb = useMemo(
+    () => (Array.isArray(data?.repertoires) ? data.repertoires : []),
+    [data?.repertoires],
+  );
+  const cardsFiltre = useMemo(
+    () => (Array.isArray(data?.result) ? data.result : []),
+    [data?.result],
+  );
+  const activeSlug = toSlug(repertoire);
+  const cards = useMemo(
+    () => cardsFiltre.filter((obj) => toSlug(obj?.repertoire) === activeSlug),
+    [activeSlug, cardsFiltre],
+  );
+  const cardsSignature = useMemo(
+    () => cards.map((card, idx) => String(card?._id || card?.num || idx)).join("|"),
+    [cards],
+  );
+  const repertoireBgColor = useMemo(() => {
+    if (!activeSlug) return null;
+    const match = repertoiresFromDb.find(
+      (rep) => toSlug(rep?.repertoire) === activeSlug
+    );
+    const color = typeof match?.bgcolor === "string" ? match.bgcolor.trim() : "";
+    return color || null;
+  }, [activeSlug, repertoiresFromDb]);
+  const layoutBgColor = repertoireBgColor || colorBgLayout;
 
   const [resetSignals, setResetSignals] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
@@ -38,15 +74,24 @@ const App = ({ repertoire }) => {
       }
       return next;
     });
-  }, [cards]);
+  }, [cardsSignature]);
 
   useEffect(() => {
-    if (status !== "idle") {
+    if (!activeClassId) {
       return;
     }
 
-    dispatch(fetchCardsMaths());
-  }, [status, dispatch]);
+    const isStaleClass = String(loadedClassId || "") !== String(activeClassId);
+    const isStaleSource = String(data?.__source || "") !== "public";
+    if (status === "idle") {
+      dispatch(fetchCardsMaths());
+      return;
+    }
+
+    if (status === "succeeded" && (isStaleSource || isStaleClass)) {
+      dispatch(fetchCardsMaths());
+    }
+  }, [activeClassId, data?.__source, dispatch, loadedClassId, status]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -139,8 +184,8 @@ const App = ({ repertoire }) => {
       <Content>
         <LayoutGroup>
           <div
-            style={{
-              background: colorBgLayout,
+           style={{
+              background: layoutBgColor,
               minHeight: 20,
               paddingTop: 10,
               borderRadius: borderRadiusLG,
@@ -221,8 +266,8 @@ const App = ({ repertoire }) => {
           </div>
           <div
             ref={cardsGridRef}
-            style={{
-              background: colorBgLayout,
+             style={{
+              background: layoutBgColor,
               minHeight: 20,
               borderRadius: borderRadiusLG,
               marginTop: 0,

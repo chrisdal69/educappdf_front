@@ -2,8 +2,8 @@ import Link from "next/link";
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
-import { clearAuth } from "../reducers/authSlice";
-import { setCardsMaths } from "../reducers/cardsMathsSlice";
+import { clearAuth } from "../../reducers/authSlice";
+import { setCardsMaths } from "../../reducers/cardsMathsSlice";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -18,11 +18,10 @@ export default function Account(props) {
   const fromPath = (router.asPath || "/").split("?")[0];
   const changePasswordHref =
     fromPath === "/" ? "/changepassword?from=home" : "/changepassword";
+  const manageClass =
+    fromPath === "/" ? "/admin/manageclass?from=home" : "/admin/manageclass";
   const changeEmailHref =
     fromPath === "/" ? "/changemail?from=home" : "/changemail";
-  const leaveClassHref =
-    fromPath === "/" ? "/leaveclass?from=home" : "/leaveclass";
-
   const handleLogout = async () => {
     try {
       const res = await fetch(`${urlFetch}/auth/logout`, {
@@ -76,26 +75,19 @@ export default function Account(props) {
         >
           Changer le mot de passe
         </Link>
-         <Link
+        <Link
+          href={manageClass}
+          className="inline-block py-2 px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-primary"
+          onClick={() => props.close()}
+        >
+          Gérer ma classe
+        </Link>
+        <Link
           href={changeEmailHref}
-          className="inline-block pt-2 px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-amber-400"
+          className="inline-block  px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-amber-400"
           onClick={() => props.close()}
         >
           Changer son email
-        </Link>
-        <Link
-          href={leaveClassHref}
-          className="inline-block py-2 px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-amber-400"
-          onClick={() => props.close()}
-        >
-          Se désinscrire de la classe de {user?.publicname}
-        </Link>
-        <Link
-          href="/deleteaccount"
-          className="inline-block px-4 rounded-lg font-semibold !text-primary no-underline hover:!underline hover:!text-red-500"
-          onClick={() => props.close()}
-        >
-          Supprimer mon compte MathsApp
         </Link>
       </div>
     </div>

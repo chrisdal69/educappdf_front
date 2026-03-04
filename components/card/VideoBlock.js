@@ -3,6 +3,7 @@ import { Button, Carousel } from "antd";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import Image from "next/image";
+import { buildCardBaseUrl } from "../../utils/gcsPaths";
 
 function isFalsyString(v) {
   if (typeof v !== "string") return !v;
@@ -55,6 +56,7 @@ export default function Video({
   title = "Video",
   num,
   repertoire,
+  classeDirectoryname,
   bg,
   isExpanded,
 }) {
@@ -122,14 +124,10 @@ export default function Video({
     return `${filename.slice(0, lastDot)}Blur${filename.slice(lastDot)}`;
   };
 
-  const bgRoot = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/`;
-  const bgPath =
-    bg && repertoire ? `${repertoire}/tag${num}/${bg}` : bg || "";
-  const blurBgPath =
-    bg && repertoire ? `${repertoire}/tag${num}/${toBlurFile(bg)}` : "";
-  const showBackground = Boolean(isExpanded && bgPath);
+  const bgRoot = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
+  const bgPath = bg || "";
+  const blurBgPath = bg ? toBlurFile(bg) : "";
+  const showBackground = Boolean(isExpanded && bgRoot && bgPath);
 
   const pauseAt = (index) => {
     const slide = slides[index];

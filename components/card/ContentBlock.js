@@ -4,6 +4,7 @@ import Image from "next/image";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import { Text } from "slate";
+import { buildCardBaseUrl } from "../../utils/gcsPaths";
 
 const DEFAULT_CONTENT = [
   {
@@ -182,6 +183,7 @@ const renderNodesTyped = (nodes, remaining) =>
 export default function Contenu({
   num,
   repertoire,
+  classeDirectoryname,
   content,
   bg,
   isExpanded,
@@ -244,7 +246,7 @@ export default function Contenu({
     };
   }, [typing, totalSteps]);
 
-  const racine = `https://storage.googleapis.com/${process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"}/${repertoire}/tag${num}/`;
+  const racine = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
 
   const toBlurFile = (filename) => {
     if (!filename || typeof filename !== "string") return "";

@@ -34,6 +34,7 @@ import {
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { clearAuth } from "../../reducers/authSlice";
+import { buildCardBaseUrl } from "../../utils/gcsPaths";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -47,10 +48,11 @@ const stripPrefix = (name = "") => {
   return parts.length > 1 ? parts.slice(1).join("___") : name;
 };
 
-const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
+const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded }) => {
   const [form] = Form.useForm();
   const [upload, setUpload] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const classId = user?.classId ? String(user.classId) : "";
   const [filesCloud, setFilesCloud] = useState([]);
   const [listMessage, setListMessage] = useState([]);
   // Filtres / tri
@@ -72,9 +74,7 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
     if (lastDot === -1) return `${filename}Blur`;
     return `${filename.slice(0, lastDot)}Blur${filename.slice(lastDot)}`;
   };
-  const bgRoot = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
+  const bgRoot = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
   const blurBg = bg ? toBlurFile(bg) : "";
   const showBackground = Boolean(isExpanded && bg);
   useEffect(() => {
@@ -106,7 +106,7 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
 
   useEffect(() => {
     if (isAuthenticated) onRecupMessages();
-  }, [isAuthenticated, _id]);
+  }, [isAuthenticated, _id, classId]);
 
   const onFinish = async (values) => {
     setUpload(true);
@@ -117,7 +117,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
       return;
     }
     formData.append("parent", "cloud");
-    formData.append("repertoire", `${repertoire}tag${num}`);
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
 
     values.files?.forEach((fileWrapper) => {
       formData.append("fichiers", fileWrapper.originFileObj);
@@ -172,7 +173,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
   const onRecup = async () => {
     const formData = new FormData();
     formData.append("parent", "cloud");
-    formData.append("repertoire", `${repertoire}tag${num}`);
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
     try {
       const res = await fetch(`${urlFetch}/upload/recup`, {
         method: "POST",
@@ -191,7 +193,7 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
     if (!_id) return;
     try {
       const res = await fetch(
-        `${urlFetch}/cards/cloud?id_card=${encodeURIComponent(_id)}`,
+        `${urlFetch}/cards/cloud?id_card=${encodeURIComponent(_id)}&classId=${encodeURIComponent(classId)}`,
         {
           method: "GET",
           credentials: "include",
@@ -261,7 +263,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
+          repertoire: `${repertoire}`,
+          num: `${num}`,
           file: fileName,
         }),
         headers: { "Content-Type": "application/json" },
@@ -299,7 +302,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
+          repertoire: `${repertoire}`,
+          num: `${num}`,
           oldName: file.name.split("/").pop(),
           newName,
         }),
@@ -647,8 +651,10 @@ const CloudBlock = ({ num, repertoire, _id, bg, isExpanded }) => {
                 const shortName = stripPrefix(fileName || "");
                 const downloadUrl = fileName
                   ? `${urlFetch}/upload/download?parent=cloud&repertoire=${encodeURIComponent(
-                      `${repertoire}tag${num}`
-                    )}&file=${encodeURIComponent(fileName)}`
+                      `${repertoire}`
+                    )}&num=${encodeURIComponent(`${num}`)}&file=${encodeURIComponent(
+                      fileName
+                    )}`
                   : file.url;
                 const isRenameOpen = renameVisible === index;
                 const isDeleteOpen = deleteVisible === index;

@@ -1,0 +1,165 @@
+"use client";
+import React, { useEffect, useState } from "react";
+import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
+import { useRouter } from "next/router";
+import { useDispatch, useSelector } from "react-redux";
+import { clearAuth } from "../reducers/authSlice";
+
+const NODE_ENV = process.env.NODE_ENV;
+const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
+const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
+const EXPECTED_PHRASE = `JE VEUX ME DESINSCRIRE DE CETTE CLASSE`;
+
+export default function LeaveClass() {
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const from = Array.isArray(router.query?.from)
+    ? router.query.from[0]
+    : router.query?.from;
+  const shouldReturnToIndexBis = from === "home";
+  const { isAuthenticated, user } = useSelector((s) => s.auth);
+  const [confirmText, setConfirmText] = useState("");
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCardVisible, setIsCardVisible] = useState(false);
+  const [isVeilVisible, setIsVeilVisible] = useState(false);
+
+  const normalizedConfirm = confirmText.trim().toUpperCase();
+  const canLeave = normalizedConfirm === EXPECTED_PHRASE;
+  const busy = isLoading;
+
+  useEffect(() => {
+    setIsCardVisible(true);
+    const veilTimeout = setTimeout(() => setIsVeilVisible(true), 1000);
+    return () => clearTimeout(veilTimeout);
+  }, []);
+
+  const handleReturn = () => {
+    if (shouldReturnToIndexBis) {
+      router.push("/indexbis");
+      return;
+    }
+    router.back();
+  };
+
+  const handleLeaveClass = async () => {
+    if (busy || !canLeave) return;
+
+    const classId = user?.classId ? String(user.classId) : "";
+    if (!classId) {
+      setMessage("Classe introuvable. Merci de te reconnecter.");
+      return;
+    }
+ 
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch(`${urlFetch}/users/leave-class`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ classId }),
+        credentials: "include",
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (json?.cleanup) {
+          console.log("leave-class cleanup:", json.cleanup);
+        }
+        setMessage(json.message || "Désinscription réalisée");
+        dispatch(clearAuth());
+        setTimeout(() => router.push("/"), 1200);
+        return;
+      }
+
+      if (Array.isArray(json.errors) && json.errors.length) {
+        setMessage(
+          json.errors[0]?.message ||
+            "Impossible de se désinscrire de cette classe",
+        );
+        return;
+      }
+
+      setMessage(
+        json.message || "Impossible de se désinscrire de cette classe",
+      );
+    } catch (err) {
+      setMessage("Erreur serveur.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="relative w-full min-h-screen flex items-center justify-center p-4 overflow-hidden"
+      style={{ backgroundColor: "bg3" }}
+    >
+      <div
+        aria-hidden="true"
+        className={`absolute inset-0 z-10 bg-black/25 backdrop-blur-sm transition-opacity duration-300 ${
+          isVeilVisible ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <div
+        className={`relative z-20 w-full max-w-md bg-white shadow-lg rounded-xl p-6 transform-gpu origin-top-right transition-transform transition-opacity duration-1000 ease-out motion-reduce:transition-none motion-reduce:transform-none ${
+          isCardVisible
+            ? "scale-100 opacity-100"
+            : "scale-0 opacity-0 pointer-events-none"
+        }`}
+        aria-busy={busy}
+      >
+        <h2 className="text-2xl font-semibold text-center mb-6">
+          Se désinscrire de la classe de {user?.publicname}
+        </h2>
+        <p>
+          Pour te désinscrire de la classe {user?.publicname}, écris dans le champ
+          ci-dessous : "{EXPECTED_PHRASE}"
+        </p>
+
+        {message && <p className="text-center mt-4 text-primary">{message}</p>}
+
+        <div className="text-center mt-4 space-y-4">
+          <input
+            type="text"
+            placeholder={EXPECTED_PHRASE}
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            disabled={busy || !isAuthenticated}
+            className="w-full border rounded-lg px-3 py-2   focus:bg-white text-red-500 placeholder:text-red-300 focus:outline-none focus:ring-1 focus:ring-red-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:placeholder:text-gray-400"
+          />
+          <button
+            type="button"
+            onClick={handleLeaveClass}
+            disabled={!canLeave || busy || !isAuthenticated}
+            className={`w-full my-2 py-2 text-white font-semibold text-lg rounded-lg disabled:bg-gray-300 ${
+              canLeave && !busy ? "bg-red-800 hover:bg-red-600" : "bg-gray-300"
+            }`}
+          >
+            {busy ? "Désinscription..." : "Se désinscrire"}
+          </button>
+        </div>
+            {/* className=" w-full mt-2 py-3 text-lg rounded-lg bg-bouton text-gray-100 font-semibold hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300" */}
+
+        <div className="text-right mt-2">
+          <button
+            type="button"
+            onClick={handleReturn}
+            className={`text-sm ${
+              busy ? "text-gray-400" : "text-primary font-medium hover:underline"
+            }`}
+          >
+            Retour à la page précédente
+          </button>
+        </div>
+
+        {busy && (
+          <div className="absolute inset-0 rounded-xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+            <ClimbingBoxLoader color="#6C6C6C" size={11} speedMultiplier={1} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,39 +1,109 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout, Menu, theme } from "antd";
 import { CloseOutlined, MenuOutlined, UserOutlined } from "@ant-design/icons";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useDispatch, useSelector } from "react-redux";
-import { setAuthenticated, clearAuth } from "../reducers/authSlice";
+import { useSelector } from "react-redux";
 import Modal from "./Modal";
 
 const { Header } = Layout;
+const DEFAULT_TABS = ["Maths"];
+
+const stripAccents = (value) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const toSlug = (value) =>
+  stripAccents(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const buildTabs = (rawTabs) => {
+  const sourceTabs =
+    Array.isArray(rawTabs) && rawTabs.length ? rawTabs : DEFAULT_TABS;
+
+  return sourceTabs
+    .map((tab) => {
+      if (typeof tab === "string") {
+        const label = tab.trim();
+        return label ? { label, slug: toSlug(label) } : null;
+      }
+
+      if (tab && typeof tab === "object") {
+        const label =
+          typeof tab.label === "string"
+            ? tab.label.trim()
+            : typeof tab.repertoire === "string"
+            ? tab.repertoire.trim()
+            : "";
+        const slug =
+          typeof tab.slug === "string" ? tab.slug.trim() : toSlug(label);
+
+        if (!label) return null;
+        return { label, slug };
+      }
+
+      return null;
+    })
+    .filter(Boolean)
+    .map((tab, index) => ({
+      label: tab.label,
+      slug: tab.slug || `onglet-${index + 1}`,
+    }));
+};
 
 export default function Nav(props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [useMobileMenu, setUseMobileMenu] = useState(false);
+  const headerWidthRef = useRef(null);
+  const menuMeasureRef = useRef(null);
   const router = useRouter();
-  const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const isAdmin = isAuthenticated && user?.role === "admin";
+  const tabs = isAuthenticated ? buildTabs(user?.repertoires) : [];
+  const adminTabs = useMemo(() => {
+    if (!isAuthenticated) return [];
+    if (isAdmin) return tabs;
+    const allowed = new Set(
+      Array.isArray(user?.adminRepertoires) ? user.adminRepertoires : []
+    );
+    return tabs.filter((tab) => allowed.has(tab.slug));
+  }, [isAdmin, isAuthenticated, tabs, user?.adminRepertoires]);
+  const tabsSignature = useMemo(
+    () => tabs.map((tab) => tab.slug).join("|"),
+    [tabs]
+  );
+  const adminTabsSignature = useMemo(
+    () => adminTabs.map((tab) => tab.slug).join("|"),
+    [adminTabs]
+  );
+  const menuSignature = useMemo(() => {
+    const roleKey = isAdmin ? "admin" : "user";
+    const authKey = isAuthenticated ? "auth" : "guest";
+    const nameKey = isAuthenticated ? `${user?.prenom || ""}|${user?.nom || ""}` : "";
+    return `${authKey}|${roleKey}|${tabsSignature}|${adminTabsSignature}|${nameKey}`;
+  }, [
+    isAdmin,
+    isAuthenticated,
+    tabsSignature,
+    adminTabsSignature,
+    user?.nom,
+    user?.prenom,
+  ]);
+  const slugToTab = tabs.reduce((acc, tab, index) => {
+    acc[tab.slug] = String(index + 2);
+    return acc;
+  }, {});
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
   const pathToKey = {
-    "/": "1",
-    "/signup": "6",
-    "/forgot": "6",
-    "/changepassword": "6",
-  };
-
-  const keyByRepertoire = {
-    ciel1: "2",
-    python: "3",
-  };
-
-  const adminKeyByRepertoire = {
-    ciel1: "4",
-    python: "5",
+    "/signup": "account",
+    "/forgot": "account",
+    "/changepassword": "account",
   };
 
   const isDynamicRoute =
@@ -43,116 +113,185 @@ export default function Nav(props) {
   const rawRepertoire = Array.isArray(router.query.repertoire)
     ? router.query.repertoire[0]
     : router.query.repertoire;
+  const dynamicKey = slugToTab[rawRepertoire];
 
   const selectedKey = !router.isReady
-    ? "1"
+    ? undefined
     : router.pathname === "/admin"
     ? undefined
     : isDynamicRoute
-    ? (router.pathname === "/admin/[repertoire]"
-        ? adminKeyByRepertoire[rawRepertoire]
-        : keyByRepertoire[rawRepertoire]) || "1"
-    : pathToKey[router.pathname] || "1";
+    ? router.pathname === "/admin/[repertoire]"
+      ? dynamicKey
+        ? `admin:${dynamicKey}`
+        : undefined
+      : dynamicKey
+    : pathToKey[router.pathname];
 
   const selectedKeys = selectedKey ? [selectedKey] : [];
 
-  let items;
-  if (!isAdmin) {
-    items = [
-      {
-        key: "1",
-        label: <Link href="/">Accueil</Link>,
+  const publicItems = tabs.map((tab, index) => ({
+    key: String(index + 2),
+    label: <Link href={`/${tab.slug}`}>{tab.label}</Link>,
+    className: "nav-item",
+  }));
+
+  const adminItems = isAdmin
+    ? tabs.map((tab, index) => ({
+        key: `admin:${index + 2}`,
+        label: <Link href={`/admin/${tab.slug}`}>{`A_${tab.label}`}</Link>,
         className: "nav-item",
-      },
-      {
-        key: "2",
-        label: <Link href="/ciel1">Maths</Link>,
+      }))
+    : adminTabs.map((tab, index) => ({
+        key: `admin:${slugToTab[tab.slug] || String(index + 2)}`,
+        label: <Link href={`/admin/${tab.slug}`}>{`A_${tab.label}`}</Link>,
         className: "nav-item",
-      },
-      {
-        key: "3",
-        label: <Link href="/python">Python</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "6",
-        icon: <UserOutlined />,
-        label: <Modal />,
-        className: "nav-item nav-item--last",
-      },
-    ];
-  } else {
-    items = [
-      {
-        key: "1",
-        label: <Link href="/">Accueil</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "2",
-        label: <Link href="/ciel1">Maths</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "3",
-        label: <Link href="/python">Python</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "4",
-        label: <Link href="/admin/ciel1">A_Maths</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "5",
-        label: <Link href="/admin/python">A_Python</Link>,
-        className: "nav-item",
-      },
-      {
-        key: "6",
-        icon: <UserOutlined />,
-        label: <Modal />,
-        className: "nav-item nav-item--last",
-      },
-    ];
-  }
+      }));
+
+  const items = [
+    ...publicItems,
+    ...adminItems,
+    {
+      key: "account",
+      icon: <UserOutlined style={{ fontSize: 24 }} />,
+      label: <Modal />,
+      className: "nav-item nav-item--last",
+    },
+  ];
+
+  useEffect(() => {
+    if (!useMobileMenu && menuOpen) {
+      setMenuOpen(false);
+    }
+  }, [menuOpen, useMobileMenu]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    let rafId;
+    const MIN_MOBILE_PX = 570;
+    const TOGGLE_RESERVE_PX = 56;
+    const SAFETY_PX = 12;
+
+    const computeUseMobileMenu = () => {
+      const viewportWidth = window.innerWidth || 0;
+      if (viewportWidth <= MIN_MOBILE_PX) {
+        return true;
+      }
+
+      const headerWrapper = headerWidthRef.current;
+      const headerElement = headerWrapper?.querySelector?.(".nav-header");
+      const headerBoxWidth =
+        headerElement?.getBoundingClientRect?.().width ||
+        headerWrapper?.getBoundingClientRect?.().width ||
+        viewportWidth;
+      const headerStyles = headerElement ? window.getComputedStyle(headerElement) : null;
+      const headerPaddingLeft = headerStyles ? Number.parseFloat(headerStyles.paddingLeft) : 0;
+      const headerPaddingRight = headerStyles ? Number.parseFloat(headerStyles.paddingRight) : 0;
+      const headerContentWidth = Math.max(
+        0,
+        headerBoxWidth - headerPaddingLeft - headerPaddingRight
+      );
+
+      const measureRoot = menuMeasureRef.current;
+      const menuElement = measureRoot?.querySelector?.(".nav-menu--measure");
+      const requiredWidth = menuElement?.getBoundingClientRect?.().width || 0;
+      if (!requiredWidth) {
+        return false;
+      }
+
+      return (
+        requiredWidth + TOGGLE_RESERVE_PX + SAFETY_PX > headerContentWidth
+      );
+    };
+
+    const scheduleUpdate = () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          setUseMobileMenu(computeUseMobileMenu());
+        });
+      });
+    };
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+
+    let resizeObserver;
+    if (typeof window.ResizeObserver !== "undefined") {
+      resizeObserver = new window.ResizeObserver(() => scheduleUpdate());
+      if (headerWidthRef.current) {
+        resizeObserver.observe(headerWidthRef.current);
+      }
+      if (menuMeasureRef.current) {
+        resizeObserver.observe(menuMeasureRef.current);
+      }
+    }
+
+    return () => {
+      window.removeEventListener("resize", scheduleUpdate);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [menuSignature]);
 
   const navColors = {
     bg: props.bg,
     border: "#222",
     tabBorder: "#000",
     text: "#333",
-    textSize: "18px",
+    textSize: "20px",
     selectedBg: props.selectedBg,
     selectedText: "#0f172a",
     hoverBg: "#fff",
   };
 
   return (
-    <div className="nav-root">
-      <Header
-        className="nav-header"
-        style={{ display: "flex", alignItems: "center" }}
-      >
-        <Menu
-          className="nav-menu nav-menu--desktop"
-          theme="dark"
-          mode="horizontal"
-          selectedKeys={selectedKeys}
-          items={items}
-          style={{ flex: 1, justifyContent: "flex-end" }}
-        />
-        <button
-          type="button"
-          className="nav-toggle"
-          aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
-          aria-expanded={menuOpen}
-          aria-controls="nav-drawer"
-          onClick={() => setMenuOpen((open) => !open)}
+    <div className={`nav-root${useMobileMenu ? " nav-root--mobile" : ""}`}>
+      <div className="nav-measure" aria-hidden="true">
+        <div ref={menuMeasureRef}>
+          <Menu
+            className="nav-menu nav-menu--measure"
+            theme="dark"
+            mode="horizontal"
+            selectedKeys={selectedKeys}
+            items={items}
+          />
+        </div>
+      </div>
+
+      <div ref={headerWidthRef}>
+        <Header
+          className="nav-header"
+          style={{ display: "flex", alignItems: "center" }}
         >
-          {menuOpen ? <CloseOutlined /> : <MenuOutlined />}
-        </button>
-      </Header>
+          <Menu
+            className="nav-menu nav-menu--desktop"
+            theme="dark"
+            mode="horizontal"
+            selectedKeys={selectedKeys}
+            items={items}
+            style={{ flex: 1, justifyContent: "flex-end" }}
+          />
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-expanded={menuOpen}
+            aria-controls="nav-drawer"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? <CloseOutlined /> : <MenuOutlined />}
+          </button>
+        </Header>
+      </div>
       <div
         className={`nav-drawer ${menuOpen ? "nav-drawer--open" : ""}`}
         id="nav-drawer"
@@ -169,6 +308,23 @@ export default function Nav(props) {
       <style jsx global>{`
         .nav-root {
           position: relative;
+          width: 100%;
+        }
+        .nav-measure {
+          position: fixed;
+          left: -10000px;
+          top: -10000px;
+          visibility: hidden;
+          pointer-events: none;
+          height: 0;
+          overflow: hidden;
+        }
+        .nav-measure > div {
+          display: inline-block;
+        }
+        .nav-measure .nav-menu--measure.ant-menu {
+          display: inline-flex;
+          width: max-content;
         }
         .nav-header {
           background: ${navColors.bg};
@@ -187,6 +343,12 @@ export default function Nav(props) {
           cursor: pointer;
           margin-left: -30px;
           margin-top: 10px;
+        }
+        .nav-root--mobile .nav-menu--desktop {
+          display: none;
+        }
+        .nav-root--mobile .nav-toggle {
+          display: inline-flex;
         }
         .nav-drawer {
           position: absolute;
@@ -422,17 +584,12 @@ export default function Nav(props) {
             transition: none;
           }
         }
-        @media (max-width: 770px) {
+        @media (max-width: 570px) {
           .nav-menu--desktop {
             display: none;
           }
           .nav-toggle {
             display: inline-flex;
-          }
-        }
-        @media (min-width: 771px) {
-          .nav-drawer {
-            display: none;
           }
         }
       `}</style>

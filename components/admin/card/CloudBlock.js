@@ -39,6 +39,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import Tooltip from "./TooltipClickClose";
 import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
+import { buildCardBaseUrl } from "../../../utils/gcsPaths";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -48,10 +49,11 @@ const { Dragger } = Upload;
 const { Text } = Typography;
 const { Option } = Select;
 
-const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
+const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded }) => {
   const [form] = Form.useForm();
   const [upload, setUpload] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const classId = user?.classId ? String(user.classId) : "";
   const [filesCloud, setFilesCloud] = useState([]);
   const [zipLoading, setZipLoading] = useState(false);
   const [scrollExpanded, setScrollExpanded] = useState(false);
@@ -84,9 +86,7 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
     if (lastDot === -1) return `${filename}Blur`;
     return `${filename.slice(0, lastDot)}Blur${filename.slice(lastDot)}`;
   };
-  const bgRoot = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
+  const bgRoot = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
   const blurBg = bg ? toBlurFile(bg) : "";
   const isExpanded = expanded !== false;
   const showBackground = Boolean(isExpanded && bg);
@@ -126,7 +126,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
       return;
     }
     formData.append("parent", "cloud");
-    formData.append("repertoire", `${repertoire}tag${num}`);
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
 
     values.files?.forEach((fileWrapper) => {
       formData.append("fichiers", fileWrapper.originFileObj);
@@ -172,7 +173,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
   const onRecup = async () => {
     const formData = new FormData();
     formData.append("parent", "cloud");
-    formData.append("repertoire", `${repertoire}tag${num}`);
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
     try {
       const res = await authFetch(`${urlFetch}/upload/recupA`, {
         method: "POST",
@@ -194,7 +196,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
+          repertoire: `${repertoire}`,
+          num: `${num}`,
           file: fileName,
         }),
         headers: { "Content-Type": "application/json" },
@@ -240,7 +243,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
+          repertoire: `${repertoire}`,
+          num: `${num}`,
           oldName: file.name.split("/").pop(),
           newName,
         }),
@@ -264,11 +268,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
     setRenameVisible(null);
   };
 
-  const handleSendMessage = async ({ nom, prenom, text, filename }) => {
-    const normalizedNom =
-      typeof nom === "string" ? nom.trim().toUpperCase() : "";
-    const normalizedPrenom =
-      typeof prenom === "string" ? prenom.trim().toLowerCase() : "";
+  const handleSendMessage = async ({ prefix, text, filename }) => {
+    const trimmedPrefix = typeof prefix === "string" ? prefix.trim() : "";
     const trimmedText = typeof text === "string" ? text.trim() : "";
     const trimmedFilename =
       typeof filename === "string" ? filename.trim() : "";
@@ -277,8 +278,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
       message.error("Id de carte manquant.");
       return;
     }
-    if (!normalizedNom || !normalizedPrenom) {
-      message.error("Nom ou prenom introuvable pour ce fichier.");
+    if (!trimmedPrefix) {
+      message.error("Prefix introuvable pour ce fichier.");
       return;
     }
     if (!trimmedText) {
@@ -292,12 +293,12 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
 
     setMessageSending(true);
     try {
-    const res = await authFetch(`${urlFetch}/cards/cloud`, {
+      const res = await authFetch(`${urlFetch}/cards/cloud`, {
         method: "POST",
         body: JSON.stringify({
           id_card: _id,
-          nom: normalizedNom,
-          prenom: normalizedPrenom,
+          id_classe: classId,
+          prefix: trimmedPrefix,
           message: trimmedText,
           filename: trimmedFilename,
         }),
@@ -338,10 +339,11 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          parent: "cloud",
-          repertoire: `${repertoire}tag${num}`,
-        }),
+          body: JSON.stringify({
+            parent: "cloud",
+            repertoire: `${repertoire}`,
+            num: `${num}`,
+          }),
       });
       if (!res.ok) {
         let errorMessage = "Impossible de générer l'archive ZIP";
@@ -563,9 +565,9 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
       )}
 
       {isAuthenticated && (
-        <Form form={form} onFinish={onFinish} className="upload-form">
+        <Form form={form} onFinish={onFinish} className="upload-form ">
           {/* 🎛️ Filtres */}
-          <div className="mb-6 flex flex-wrap gap-3 items-center justify-center md:justify-start">
+          <div className="mb-6 mt-2 flex flex-wrap gap-3 items-center justify-center md:justify-start">
             <Input
               placeholder="Rechercher un fichier..."
               value={searchTerm}
@@ -666,9 +668,8 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
                 const isDeleteOpen = deleteVisible === index;
                 const isMessageOpen = messageVisible === index;
 
-                const nomPrenom = fullName.split("___")[0] ?? "";
-                const [nom, prenom] = splitMajMin(nomPrenom);
-                const reduceName = fullName.split("___")[1] ?? "";
+                const ownerPrefix = fullName.split("___")[0] ?? "";
+                const reduceName = fullName.split("___").slice(1).join("___") ?? "";
 
                 return (
                   <List.Item className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 px-2 py-1 border-b border-gray-100 last:border-b-0">
@@ -742,7 +743,7 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
                               rows={5}
                               value={messageText}
                               onChange={(e) => setMessageText(e.target.value)}
-                              placeholder= {`message à ${nom} ${prenom}`}
+                              placeholder= {`message à ${ownerPrefix}`}
                               style={{ width: "min(600px, 85vw)" }}
                               disabled={messageSending}
                             />
@@ -758,8 +759,7 @@ const CloudBlock = ({ num, repertoire, _id, bg, expanded }) => {
                                   loading={messageSending}
                                   onClick={() =>
                                     handleSendMessage({
-                                      nom,
-                                      prenom,
+                                      prefix: ownerPrefix,
                                       text: messageText,
                                       filename: reduceName,
                                     })

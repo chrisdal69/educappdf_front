@@ -30,6 +30,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import Tooltip from "./TooltipClickClose";
+import { buildCardBaseUrl } from "../../../utils/gcsPaths";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -247,6 +248,7 @@ const validateImportedQuizzPayload = (payload) => {
 export default function Quizz({
   num,
   repertoire,
+  classeDirectoryname,
   quizz,
   evalQuizz,
   resultatQuizz,
@@ -314,20 +316,12 @@ export default function Quizz({
     </>
   );
 
-  const racine = useMemo(
-    () =>
-      `https://storage.googleapis.com/${
-        process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-      }/${repertoire}/tag${num}/imagesQuizz/`,
-    [repertoire, num]
+  const baseUrl = useMemo(
+    () => buildCardBaseUrl({ classeDirectoryname, repertoire, num }),
+    [classeDirectoryname, repertoire, num]
   );
-  const bgRoot = useMemo(
-    () =>
-      `https://storage.googleapis.com/${
-        process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-      }/${repertoire}/tag${num}/`,
-    [repertoire, num]
-  );
+  const racine = useMemo(() => (baseUrl ? `${baseUrl}imagesQuizz/` : ""), [baseUrl]);
+  const bgRoot = baseUrl;
   const toBlurFile = (filename = "") => {
     const lastDot = filename.lastIndexOf(".");
     if (lastDot === -1) return `${filename}Blur`;
@@ -1165,7 +1159,7 @@ export default function Quizz({
       )}
       {actionKey && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-white/60">
-          <ClimbingBoxLoader color="#2563eb" size={12} />
+          <ClimbingBoxLoader color="#6C6C6C" size={12} />
         </div>
       )}
 

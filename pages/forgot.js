@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -8,10 +8,11 @@ import zxcvbn from "zxcvbn";
 import { Eye, EyeOff, CheckCircle, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 const NODE_ENV = process.env.NODE_ENV;
-const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
-const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
+ const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
+ const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
+ const CODE_TTL_MS = 7 * 60 * 1000;
+ const OTP_LENGTH = 4;
 
 // === Schémas de validation ===
 const emailSchema = yup.object().shape({
@@ -43,6 +44,125 @@ const passwordSchema = yup.object().shape({
     .required("Confirmation obligatoire"),
 });
 
+function OtpInput({ value, onChange, disabled, length = OTP_LENGTH }) {
+  const inputRefs = useRef([]);
+  const [chars, setChars] = useState(() => {
+    const safeValue = String(value || "");
+    return Array.from({ length }, (_, i) => safeValue[i] || "");
+  });
+
+  useEffect(() => {
+    const safeValue = String(value || "");
+    setChars(Array.from({ length }, (_, i) => safeValue[i] || ""));
+  }, [value, length]);
+
+  const commit = (nextChars, nextFocusIndex = null) => {
+    setChars(nextChars);
+    onChange(nextChars.join(""));
+
+    if (
+      nextFocusIndex !== null &&
+      nextFocusIndex >= 0 &&
+      nextFocusIndex < length
+    ) {
+      inputRefs.current[nextFocusIndex]?.focus();
+    }
+  };
+
+  const fillFromIndex = (startIndex, rawText) => {
+    const clean = String(rawText || "")
+      .replace(/\s/g, "")
+      .replace(/[^a-z0-9]/gi, "")
+      .toUpperCase()
+      .slice(0, length);
+    if (!clean) return;
+
+    const nextChars = [...chars];
+    let writeIndex = startIndex;
+
+    for (const c of clean) {
+      if (writeIndex >= length) break;
+      nextChars[writeIndex] = c;
+      writeIndex += 1;
+    }
+
+    commit(nextChars, Math.min(writeIndex, length - 1));
+  };
+
+  const handleChange = (index, e) => {
+    const raw = e.target.value;
+
+    if (raw.length > 1) {
+      fillFromIndex(index, raw);
+      return;
+    }
+
+    const clean = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    const nextChars = [...chars];
+    nextChars[index] = clean || "";
+
+    commit(nextChars, clean && index < length - 1 ? index + 1 : index);
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === "Backspace") {
+      if (!chars[index] && index > 0) {
+        e.preventDefault();
+        const nextChars = [...chars];
+        nextChars[index - 1] = "";
+        commit(nextChars, index - 1);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    if (e.key === "ArrowRight" && index < length - 1) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (index, e) => {
+    e.preventDefault();
+    const text = e.clipboardData?.getData("text") ?? "";
+    fillFromIndex(index, text);
+  };
+
+  return (
+    <div className="flex items-center justify-center gap-3">
+      {Array.from({ length }, (_, index) => (
+        <input
+          key={index}
+          ref={(el) => {
+            inputRefs.current[index] = el;
+          }}
+          type="text"
+          inputMode="text"
+          pattern="[A-Za-z0-9]*"
+          maxLength={1}
+          value={chars[index]}
+          onChange={(e) => handleChange(index, e)}
+          onKeyDown={(e) => handleKeyDown(index, e)}
+          onPaste={(e) => handlePaste(index, e)}
+          onFocus={(e) => e.currentTarget.select()}
+          disabled={disabled}
+          autoFocus={index === 0}
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          autoCapitalize="characters"
+          spellCheck={false}
+          aria-label={`Caractère ${index + 1} du code`}
+          className="w-12 h-12 border rounded text-center text-xl tracking-widest"
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function ForgotWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -50,6 +170,10 @@ export default function ForgotWizard() {
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCardVisible, setIsCardVisible] = useState(false);
+  const [isVeilVisible, setIsVeilVisible] = useState(false);
+  const [codeExpiresAt, setCodeExpiresAt] = useState(null);
+  const [remainingMs, setRemainingMs] = useState(0);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -74,6 +198,7 @@ export default function ForgotWizard() {
     register,
     handleSubmit,
     watch,
+    setValue,
     resetField, // 👈 ajoute ici !
     formState: { errors, isValid, isSubmitting },
   } = useForm({
@@ -82,7 +207,14 @@ export default function ForgotWizard() {
   });
 
   const newPassword = watch("newPassword", "");
+  const codeValue = watch("code", "");
   const busy = isLoading || isSubmitting;
+
+  useEffect(() => {
+    setIsCardVisible(true);
+    const veilTimeout = setTimeout(() => setIsVeilVisible(true), 1000);
+    return () => clearTimeout(veilTimeout);
+  }, []);
 
   // ✅ Vérifie la robustesse du mot de passe
   useEffect(() => {
@@ -98,6 +230,51 @@ export default function ForgotWizard() {
     }
   }, [newPassword, step]);
 
+  useEffect(() => {
+    if (step !== 2 || !codeExpiresAt) return;
+
+    const tick = () => {
+      setRemainingMs(Math.max(0, codeExpiresAt - Date.now()));
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [step, codeExpiresAt]);
+
+  const remainingLabel = React.useMemo(() => {
+    const totalSeconds = Math.floor((remainingMs || 0) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")} : ${String(seconds).padStart(
+      2,
+      "0",
+    )}`;
+  }, [remainingMs]);
+
+  useEffect(() => {
+    if (step !== 2 || !codeExpiresAt) return;
+
+    const msLeft = codeExpiresAt - Date.now();
+
+    if (msLeft <= 0) {
+      setMessage("Opération annulée");
+      const redirectTimeout = setTimeout(() => router.push("/"), 1500);
+      return () => clearTimeout(redirectTimeout);
+    }
+
+    let redirectTimeout = null;
+    const expireTimeout = setTimeout(() => {
+      setMessage("Opération annulée");
+      redirectTimeout = setTimeout(() => router.push("/"), 1500);
+    }, msLeft);
+
+    return () => {
+      clearTimeout(expireTimeout);
+      if (redirectTimeout) clearTimeout(redirectTimeout);
+    };
+  }, [step, codeExpiresAt, router]);
+
   // === ÉTAPE 1 : ENVOI EMAIL ===
   const onSubmitEmail = async (data) => {
     setIsLoading(true);
@@ -111,6 +288,8 @@ export default function ForgotWizard() {
       if (res.ok) {
         setEmail(data.email);
         setMessage("Un code a été envoyé à votre adresse email.");
+        setCodeExpiresAt(Date.now() + CODE_TTL_MS);
+        setRemainingMs(CODE_TTL_MS);
         setStep(2);
       } else {
         setMessage(json.error || "Erreur lors de l’envoi du code.");
@@ -146,7 +325,7 @@ export default function ForgotWizard() {
       if (res.ok) {
         setMessage("Mot de passe réinitialisé avec succès ✅");
         setStep(4);
-        setTimeout(() => router.push("/"), 2000);
+        setTimeout(() => router.back(), 2000);
       } else {
         setMessage(json.error || "Erreur lors de la réinitialisation.");
       }
@@ -167,7 +346,14 @@ export default function ForgotWizard() {
         body: JSON.stringify({ email }),
       });
       const json = await res.json();
-      setMessage(res.ok ? "Nouveau code envoyé !" : json.error);
+      if (res.ok) {
+        setMessage("Nouveau code envoyé !");
+        setCodeExpiresAt(Date.now() + CODE_TTL_MS);
+        setRemainingMs(CODE_TTL_MS);
+        resetField("code");
+      } else {
+        setMessage(json.error);
+      }
     } catch {
       setMessage("Erreur serveur.");
     } finally {
@@ -221,7 +407,24 @@ export default function ForgotWizard() {
   );
 
   return (
-    <div className="max-w-md mx-auto mt-10 bg-white shadow-lg rounded-xl p-6 relative" aria-busy={isLoading || isSubmitting}>
+    <div
+      className="relative w-full min-h-screen flex items-center justify-center p-4 overflow-hidden"
+      style={{ backgroundColor: "bg3" }}
+    >
+      <div
+        aria-hidden="true"
+        className={`absolute inset-0 z-10 bg-black/25 backdrop-blur-sm transition-opacity duration-300 ${
+          isVeilVisible ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <div
+        className={`relative z-20 w-full max-w-md bg-white shadow-2xl rounded-xl p-6 transform-gpu origin-top-right transition-transform transition-opacity duration-1000 ease-out motion-reduce:transition-none motion-reduce:transform-none ${
+          isCardVisible
+            ? "scale-100 opacity-100"
+            : "scale-0 opacity-0 pointer-events-none"
+        }`}
+        aria-busy={isLoading || isSubmitting}
+      >
       {/* Barre de progression */}
       <div className="flex justify-between mb-6">
         {steps.map((label, idx) => (
@@ -229,7 +432,7 @@ export default function ForgotWizard() {
             <div
               className={`mx-auto w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold ${
                 step >= idx + 1
-                  ? "bg-blue-600 text-white"
+                  ? "bg-primary text-white"
                   : "bg-gray-300 text-gray-600"
               }`}
             >
@@ -241,7 +444,7 @@ export default function ForgotWizard() {
       </div>
 
       {message && (
-        <p className="text-center text-sm text-blue-600 mb-4">{message}</p>
+        <p className="text-center text-sm text-primary mb-4">{message}</p>
       )}
 
       <AnimatePresence mode="wait">
@@ -273,17 +476,18 @@ export default function ForgotWizard() {
             <button
               type="submit"
               disabled={!isValid || busy}
-              className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300"
+              className="w-full py-3 my-3 bg-bouton rounded-lg text-white text-lg hover:bg-slate-300 hover:text-gray-800 disabled:bg-gray-300"
             >
               {isLoading ? "Envoi..." : "Envoyer le code"}
             </button>
             <div className=" text-right">
-              <Link
-                href="/"
-                className="text-sm text-blue-600 hover:underline"
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="text-sm text-primary hover:underline"
               >
-                Retour page Accueil ?
-              </Link>
+                Retour  ?
+              </button>
             </div>
           </motion.form>
         )}
@@ -299,17 +503,23 @@ export default function ForgotWizard() {
             exit={{ opacity: 0, x: 50 }}
           >
             <h2 className="text-xl font-semibold mb-3">Saisir le code</h2>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-gray-600 mb-5">
               Code envoyé à <strong>{email}</strong>
             </p>
-            <input
-              type="text"
-              maxLength={4}
-              placeholder="Code"
-              {...register("code")}
-              className="border rounded px-4 py-2 text-center tracking-widest w-40 mx-auto"
+            <input type="hidden" {...register("code")} />
+            <OtpInput
+              value={codeValue}
               disabled={busy}
+              onChange={(nextCode) => {
+                setValue("code", nextCode, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
             />
+            <p className="text-sm text-gray-600 ">
+              Temps restant pour la saisie : {remainingLabel}
+            </p>
             {errors.code && (
               <p className="text-sm text-red-600">{errors.code.message}</p>
             )}
@@ -317,8 +527,8 @@ export default function ForgotWizard() {
             <div className="space-y-2 mt-4">
               <button
                 type="submit"
-                disabled={!isValid || busy}
-                className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                disabled={!isValid || busy || (codeExpiresAt && remainingMs <= 0)}
+                className="w-full mb-5 py-3 bg-bouton rounded-xl text-white text-lg hover:bg-slate-300 hover:text-gray-800"
               >
                 Valider le code
               </button>
@@ -326,7 +536,7 @@ export default function ForgotWizard() {
                 type="button"
                 onClick={handleResendCode}
                 disabled={busy}
-                className="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                className="w-full py-3 mb-3 text-lg bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300"
               >
                 Renvoyer le code
               </button>
@@ -336,9 +546,11 @@ export default function ForgotWizard() {
                 onClick={() => {
                   setStep(1);
                   setMessage("");
+                  setCodeExpiresAt(null);
+                  setRemainingMs(0);
                 }}
                 disabled={busy}
-                className="w-full py-2 flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 mt-2"
+                className="w-full py-2 text-lg flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 mt-2"
               >
                 <ArrowLeft size={16} /> Retour
               </button>
@@ -419,7 +631,7 @@ export default function ForgotWizard() {
             <button
               type="submit"
               disabled={!isValid || busy}
-              className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300"
+              className="w-full py-3 my-3 bg-bouton text-lg text-white rounded-xl hover:bg-slate-300 hovet-text-gray-800 disabled:bg-gray-300"
             >
               {isLoading ? "Mise à jour..." : "Changer le mot de passe"}
             </button>
@@ -432,7 +644,7 @@ export default function ForgotWizard() {
                 setMessage("");
                 resetField("code");
               }}
-              className="w-full py-2 flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 mt-2"
+              className="w-full py-3 flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 mt-3"
             >
               <ArrowLeft size={16} /> Retour
             </button>
@@ -454,7 +666,7 @@ export default function ForgotWizard() {
               Mot de passe réinitialisé ✅
             </h2>
             <p className="text-sm text-gray-600 mt-2">
-              Redirection vers la page de Accueil ...
+              Redirection vers la page d'accueil ...
             </p>
           </motion.div>
         )}
@@ -465,6 +677,7 @@ export default function ForgotWizard() {
           <ClimbingBoxLoader color="#6C6C6C" size={11} speedMultiplier={1} />
         </div>
       )}
+      </div>
     </div>
   );
 }

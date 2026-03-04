@@ -9,6 +9,7 @@ import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import { useRouter } from "next/router";
 import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
+import { buildCardBaseUrl } from "../../../utils/gcsPaths";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -89,6 +90,7 @@ const renderInlineKatex = (input) => {
 export default function Quizz({
   num,
   repertoire,
+  classeDirectoryname,
   quizz,
   evalQuizz,
   resultatQuizz,
@@ -113,10 +115,9 @@ export default function Quizz({
   });
   const [resultsLoading, setResultsLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
-  const racine = `https://storage.googleapis.com/${process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"}/${repertoire}/tag${num}/imagesQuizz/`;
-  const bgRoot = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/${repertoire}/tag${num}/`;
+  const baseUrl = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
+  const racine = baseUrl ? `${baseUrl}imagesQuizz/` : "";
+  const bgRoot = baseUrl;
   const toBlurFile = (filename = "") => {
     const lastDot = filename.lastIndexOf(".");
     if (lastDot === -1) return `${filename}Blur`;

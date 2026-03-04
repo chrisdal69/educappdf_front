@@ -1,6 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Card, Button, Input, Popover, Space, Tooltip, message } from "antd";
+import {
+  Card,
+  Button,
+  Input,
+  Popover,
+  Progress,
+  Space,
+  Tooltip,
+  message,
+} from "antd";
 import { useRouter } from "next/router";
 import {
   EditOutlined,
@@ -11,6 +20,7 @@ import {
   EyeOutlined,
   EyeInvisibleOutlined,
   CloudOutlined,
+  ExportOutlined,
   StopOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
@@ -37,6 +47,8 @@ const CardBlock = (data) => {
   const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [isTogglingVisible, setIsTogglingVisible] = useState(false);
   const [isTogglingCloud, setIsTogglingCloud] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(null);
   const [isMoving, setIsMoving] = useState(false);
   const [moveConfirmDirection, setMoveConfirmDirection] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -50,6 +62,9 @@ const CardBlock = (data) => {
   const router = useRouter();
   const cardsData = useSelector((state) => state.cardsMaths.data);
   const { isAuthenticated } = useSelector((state) => state.auth);
+  const classeDirectoryname = useSelector(
+    (state) => state.auth?.user?.directoryname || ""
+  );
   const authFetch = async (url, options) => {
     const response = await fetch(url, options);
     throwIfUnauthorized(response);
@@ -393,6 +408,196 @@ const CardBlock = (data) => {
     }
   };
 
+  const getFileNameFromDisposition = (disposition) => {
+    if (!disposition || typeof disposition !== "string") return null;
+    const match = disposition.match(
+      /filename\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i
+    );
+    const candidate = match?.[1] || match?.[2] || "";
+    if (!candidate) return null;
+    try {
+      return decodeURIComponent(candidate);
+    } catch (_) {
+      return candidate;
+    }
+  };
+
+  const buildFallbackExportName = () => {
+    const repertoire = (data?.repertoire || "").toString().trim();
+    const num =
+      typeof data?.num !== "undefined" && data?.num !== null
+        ? `${data.num}`.trim()
+        : "";
+    const parts = ["card"];
+    if (repertoire) parts.push(repertoire);
+    if (num) parts.push(`tag${num}`);
+    const base = parts.join("_").replace(/[^a-zA-Z0-9_-]+/g, "_");
+    return `${base || "card"}.zip`;
+  };
+
+  const exportTickerRef = useRef(null);
+
+  const stopExportTicker = () => {
+    if (exportTickerRef.current) {
+      clearInterval(exportTickerRef.current);
+      exportTickerRef.current = null;
+    }
+  };
+
+  const startExportTicker = () => {
+    stopExportTicker();
+    exportTickerRef.current = setInterval(() => {
+      setExportProgress((prev) => {
+        if (!prev || prev.mode !== "indeterminate") {
+          return prev;
+        }
+        const next = prev.percent >= 90 ? 10 : prev.percent + 10;
+        return { ...prev, percent: next };
+      });
+    }, 300);
+  };
+
+  useEffect(() => {
+    return () => stopExportTicker();
+  }, []);
+
+  const blobToText = (blob) =>
+    new Promise((resolve) => {
+      if (!blob) return resolve("");
+      try {
+        blob
+          .text()
+          .then((t) => resolve(t))
+          .catch(() => resolve(""));
+      } catch (_) {
+        resolve("");
+      }
+    });
+
+  const downloadZipWithProgress = ({ url, onProgress }) =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", url, true);
+      xhr.responseType = "blob";
+      xhr.withCredentials = true;
+
+      let headerTotal = null;
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 2) {
+          const raw = xhr.getResponseHeader("Content-Length");
+          const parsed = Number(raw);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            headerTotal = parsed;
+          }
+        }
+      };
+
+      xhr.onprogress = (event) => {
+        if (typeof onProgress !== "function") return;
+        const loaded = Number(event?.loaded) || 0;
+        const eventTotal = Number(event?.total) || 0;
+        const total = eventTotal > 0 ? eventTotal : headerTotal;
+        const lengthComputable = Boolean(event?.lengthComputable) || Boolean(total);
+        onProgress({ loaded, total: total || 0, lengthComputable });
+      };
+
+      xhr.onload = async () => {
+        const status = xhr.status;
+        const responseBlob = xhr.response;
+        if (status >= 200 && status < 300) {
+          return resolve({
+            blob: responseBlob,
+            disposition: xhr.getResponseHeader("Content-Disposition"),
+          });
+        }
+
+        const error = new Error("Export impossible.");
+        error.status = status;
+        if (status === 401) {
+          error.isAuthError = true;
+        }
+        const text = await blobToText(responseBlob);
+        try {
+          const parsed = JSON.parse(text);
+          error.message = parsed?.error || parsed?.message || error.message;
+        } catch (_) {
+          error.message = text || error.message;
+        }
+        return reject(error);
+      };
+
+      xhr.onerror = () => {
+        reject(new Error("Erreur reseau lors de l'export."));
+      };
+
+      xhr.send();
+    });
+
+  const handleExportCard = async () => {
+    const cardId = data?._id || data?.id;
+    if (!cardId) {
+      message.error("Identifiant de carte manquant.");
+      return;
+    }
+
+    setIsExporting(true);
+    setExportProgress({
+      mode: "indeterminate",
+      percent: 10,
+      loaded: 0,
+      total: 0,
+    });
+    startExportTicker();
+    try {
+      const download = await downloadZipWithProgress({
+        url: `${urlFetch}/cards/${cardId}/export/zip`,
+        onProgress: ({ loaded, total, lengthComputable }) => {
+          if (lengthComputable && total > 0) {
+            stopExportTicker();
+            const percent = Math.floor((loaded / total) * 100);
+            setExportProgress({
+              mode: "determinate",
+              percent: Math.max(0, Math.min(100, percent)),
+              loaded,
+              total,
+            });
+          } else {
+            setExportProgress((prev) => ({
+              ...(prev || {}),
+              mode: "indeterminate",
+              loaded,
+              total: 0,
+              percent: prev?.percent ?? 10,
+            }));
+          }
+        },
+      });
+
+      const zipBlob = download.blob;
+      const headerName = getFileNameFromDisposition(download.disposition);
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = headerName || buildFallbackExportName();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      message.success("Export termine.");
+    } catch (error) {
+      console.error("Erreur export carte", error);
+      const handled = handleAuthError(error, { dispatch, router });
+      if (!handled) {
+        message.error(error.message || "Erreur lors de l'export.");
+      }
+    } finally {
+      setIsExporting(false);
+      stopExportTicker();
+      setExportProgress(null);
+    }
+  };
+
   const onTabChange = (key) => {
     setActiveTabKey(key);
     if (typeof data.onTabChangeExternal === "function") {
@@ -456,8 +661,8 @@ const CardBlock = (data) => {
   const tabList = [
     { key: "contenu", label: "Contenu" },
     { key: "fichiers", label: "Fichiers" },
-    { key: "quizz", label: "Qcm" },
-    { key: "quizzResult", label: "Qcm+" },
+    { key: "quizz", label: "Quizz" },
+    { key: "quizzResult", label: "Quizz+" },
     { key: "flash", label: "Flash" },
 
     isAuthenticated && isCloudEnabled && { key: "cloud", label: "Cloud" },
@@ -465,19 +670,19 @@ const CardBlock = (data) => {
   ];
   const visibleTabList = tabList.filter(Boolean);
   const contentList = {
-    contenu: <ContentBlock {...data} />,
-    fichiers: <FilesBlock {...data} />,
-    quizz: <Quizz {...data} />,
-    quizzResult: <QuizzResult {...data} />,
-    flash: <FlashBlock {...data} />,
+    contenu: <ContentBlock {...data} classeDirectoryname={classeDirectoryname} />,
+    fichiers: <FilesBlock {...data} classeDirectoryname={classeDirectoryname} />,
+    quizz: <Quizz {...data} classeDirectoryname={classeDirectoryname} />,
+    quizzResult: <QuizzResult {...data} classeDirectoryname={classeDirectoryname} />,
+    flash: <FlashBlock {...data} classeDirectoryname={classeDirectoryname} />,
   };
 
   if (data.video) {
-    contentList.video = <VideoBlock {...data} />;
+    contentList.video = <VideoBlock {...data} classeDirectoryname={classeDirectoryname} />;
   }
 
   if (isAuthenticated && isCloudEnabled) {
-    contentList.cloud = <CloudBlock {...data} />;
+    contentList.cloud = <CloudBlock {...data} classeDirectoryname={classeDirectoryname} />;
   }
 
   const cardsList =
@@ -674,6 +879,25 @@ const CardBlock = (data) => {
               icon={isCloudEnabled ? <CloudOutlined /> : <StopOutlined />}
             />
           </Tooltip>
+          <Tooltip title="Exporter la carte" mouseEnterDelay={0.3}>
+            <Button
+              size="small"
+              type="default"
+              onClick={handleExportCard}
+              loading={isExporting}
+              icon={<ExportOutlined />}
+            />
+          </Tooltip>
+          {isExporting && exportProgress && (
+            <div style={{ width: 120 }} title="Export en cours...">
+              <Progress
+                percent={exportProgress.percent || 0}
+                size="small"
+                status="active"
+                showInfo={false}
+              />
+            </div>
+          )}
           <Popover
             placement="bottomRight"
             trigger="click"

@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import Tooltip from "./TooltipClickClose";
+import { buildCardBaseUrl } from "../../../utils/gcsPaths";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -113,6 +114,7 @@ export default function Video({
   id,
   num,
   repertoire,
+  classeDirectoryname,
   bg,
   expanded,
 }) {
@@ -227,15 +229,11 @@ export default function Video({
     if (lastDot === -1) return `${filename}Blur`;
     return `${filename.slice(0, lastDot)}Blur${filename.slice(lastDot)}`;
   };
-  const bgRoot = `https://storage.googleapis.com/${
-    process.env.NEXT_PUBLIC_BUCKET_NAME || "mathsapp"
-  }/`;
-  const bgPath =
-    bg && repertoire ? `${repertoire}/tag${num}/${bg}` : bg || "";
-  const blurBgPath =
-    bg && repertoire ? `${repertoire}/tag${num}/${toBlurFile(bg)}` : "";
+  const bgRoot = buildCardBaseUrl({ classeDirectoryname, repertoire, num });
+  const bgPath = bg || "";
+  const blurBgPath = bg ? toBlurFile(bg) : "";
   const isExpanded = expanded !== false;
-  const showBackground = Boolean(isExpanded && bgPath);
+  const showBackground = Boolean(isExpanded && bgRoot && bgPath);
 
   const carouselRef = useRef(null);
   const iframeRefs = useRef([]);

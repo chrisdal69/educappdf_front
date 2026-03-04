@@ -11,6 +11,7 @@ import {
   EyeOutlined,
   EyeInvisibleOutlined,
   CloudOutlined,
+  ExportOutlined,
   StopOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
@@ -37,6 +38,7 @@ const CardBlock = (data) => {
   const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [isTogglingVisible, setIsTogglingVisible] = useState(false);
   const [isTogglingCloud, setIsTogglingCloud] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [moveConfirmDirection, setMoveConfirmDirection] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -396,6 +398,83 @@ const CardBlock = (data) => {
     }
   };
 
+  const getFileNameFromDisposition = (disposition) => {
+    if (!disposition || typeof disposition !== "string") return null;
+    const match = disposition.match(
+      /filename\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i
+    );
+    const candidate = match?.[1] || match?.[2] || "";
+    if (!candidate) return null;
+    try {
+      return decodeURIComponent(candidate);
+    } catch (_) {
+      return candidate;
+    }
+  };
+
+  const buildFallbackExportName = () => {
+    const repertoire = (data?.repertoire || "").toString().trim();
+    const num =
+      typeof data?.num !== "undefined" && data?.num !== null
+        ? `${data.num}`.trim()
+        : "";
+    const parts = ["card"];
+    if (repertoire) parts.push(repertoire);
+    if (num) parts.push(`tag${num}`);
+    const base = parts.join("_").replace(/[^a-zA-Z0-9_-]+/g, "_");
+    return `${base || "card"}.zip`;
+  };
+
+  const handleExportCard = async () => {
+    const cardId = data?._id || data?.id;
+    if (!cardId) {
+      message.error("Identifiant de carte manquant.");
+      return;
+    }
+    const exportKey = `export-card-${cardId}`;
+    setIsExporting(true);
+    message.loading({
+      content: "Export de la carte en cours...",
+      key: exportKey,
+      duration: 0,
+    });
+    try {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/export/zip`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (_) {}
+        throw new Error(payload?.error || "Impossible d'exporter la carte.");
+      }
+
+      const zipBlob = await response.blob();
+      const headerName = getFileNameFromDisposition(
+        response.headers.get("Content-Disposition")
+      );
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = headerName || buildFallbackExportName();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      message.success({ content: "Export termine.", key: exportKey });
+    } catch (error) {
+      console.error("Erreur export carte", error);
+      const handled = handleAuthError(error, { dispatch, router });
+      if (!handled) {
+        message.error({ content: "Erreur lors de l'export.", key: exportKey });
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const onTabChange = (key) => {
     setActiveTabKey(key);
     if (typeof data.onTabChangeExternal === "function") {
@@ -675,6 +754,15 @@ const CardBlock = (data) => {
               onClick={handleToggleCloud}
               loading={isTogglingCloud}
               icon={isCloudEnabled ? <CloudOutlined /> : <StopOutlined />}
+            />
+          </Tooltip>
+          <Tooltip title="Exporter la carte" mouseEnterDelay={0.3}>
+            <Button
+              size="small"
+              type="default"
+              onClick={handleExportCard}
+              loading={isExporting}
+              icon={<ExportOutlined />}
             />
           </Tooltip>
           <Popover

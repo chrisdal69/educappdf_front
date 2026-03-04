@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Layout, theme, Button, message } from "antd";
+import { Layout, theme, Button, Upload, message } from "antd";
+import JSZip from "jszip";
 const { Content } = Layout;
 import Card from "./Card";
 import { useDispatch, useSelector } from "react-redux";
@@ -57,6 +58,7 @@ const App = ({ nomRepertoire }) => {
 
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [resetSignals, setResetSignals] = useState([]);
   const [expandedKey, setExpandedKey] = useState(null);
@@ -180,6 +182,198 @@ const App = ({ nomRepertoire }) => {
     }
   };
 
+  const getZipBaseName = (name = "") => {
+    const normalized = `${name}`.replace(/\\/g, "/");
+    const parts = normalized.split("/").filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : normalized;
+  };
+
+  const guessContentType = (name = "") => {
+    const lower = `${name}`.toLowerCase();
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".gif")) return "image/gif";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".svg")) return "image/svg+xml";
+    if (lower.endsWith(".pdf")) return "application/pdf";
+    if (lower.endsWith(".txt")) return "text/plain";
+    if (lower.endsWith(".md")) return "text/markdown";
+    if (lower.endsWith(".csv")) return "text/csv";
+    if (lower.endsWith(".mp4")) return "video/mp4";
+    if (lower.endsWith(".zip")) return "application/zip";
+    return "application/octet-stream";
+  };
+
+  const handleImportCardZip = async (file) => {
+    if (!file) return;
+    const fileName = file.name || "";
+    if (!fileName.toLowerCase().endsWith(".zip")) {
+      message.error("Merci de choisir un fichier .zip.");
+      return;
+    }
+
+    const repertoire = (cards?.[0]?.repertoire || nomRepertoire).trim();
+    if (!repertoire) {
+      message.error("Repertoire introuvable pour l'import.");
+      return;
+    }
+
+    const importKey = "import-card";
+    setImporting(true);
+    message.loading({
+      content: "Import de la carte en cours...",
+      key: importKey,
+      duration: 0,
+    });
+
+    let createdCardId = null;
+
+    try {
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      const entries = Object.values(zip.files).filter((entry) => !entry.dir);
+
+      const jsonEntry =
+        entries.find(
+          (entry) => getZipBaseName(entry.name).toLowerCase() === "card.json"
+        ) || null;
+
+      if (!jsonEntry) {
+        throw new Error("card.json introuvable dans le zip.");
+      }
+
+      let parsedCard = null;
+      try {
+        parsedCard = JSON.parse(await jsonEntry.async("text"));
+      } catch (_) {
+        throw new Error("card.json est invalide.");
+      }
+      if (!parsedCard || typeof parsedCard !== "object") {
+        throw new Error("card.json est invalide.");
+      }
+
+      const createResponse = await authFetch(`${urlFetch}/cards/admin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ repertoire }),
+      });
+      const createPayload = await createResponse.json();
+      if (!createResponse.ok) {
+        throw new Error(createPayload?.error || "Impossible de creer la carte.");
+      }
+      createdCardId = createPayload?.result?._id || createPayload?.result?.id;
+      if (!createdCardId) {
+        throw new Error("Identifiant de carte manquant apres creation.");
+      }
+
+      const fileEntries = entries.filter((entry) =>
+        `${entry.name}`.replace(/\\/g, "/").startsWith("files/")
+      );
+
+      for (let idx = 0; idx < fileEntries.length; idx += 1) {
+        const entry = fileEntries[idx];
+        const entryName = `${entry.name}`.replace(/\\/g, "/");
+        const relativePath = entryName.slice("files/".length);
+        if (!relativePath) continue;
+
+        message.loading({
+          content: `Upload ${idx + 1}/${fileEntries.length}...`,
+          key: importKey,
+          duration: 0,
+        });
+
+        const blob = await entry.async("blob");
+        const contentType = guessContentType(relativePath);
+
+        const signResponse = await authFetch(
+          `${urlFetch}/cards/${createdCardId}/import/sign`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              path: relativePath,
+              type: contentType,
+              size: blob.size,
+            }),
+          }
+        );
+        const signPayload = await signResponse.json();
+        if (!signResponse.ok) {
+          throw new Error(signPayload?.error || "Impossible de preparer l'upload.");
+        }
+        const signed = signPayload?.result || signPayload;
+        const signedUrl = signed?.url;
+        const signedContentType = signed?.contentType || contentType;
+        if (!signedUrl) {
+          throw new Error("URL d'upload manquante.");
+        }
+
+        const uploadResponse = await fetch(signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": signedContentType },
+          body: blob,
+        });
+        if (!uploadResponse.ok) {
+          throw new Error("Upload direct echoue.");
+        }
+
+        const confirmResponse = await authFetch(
+          `${urlFetch}/cards/${createdCardId}/import/confirm`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ path: relativePath }),
+          }
+        );
+        const confirmPayload = await confirmResponse.json();
+        if (!confirmResponse.ok) {
+          throw new Error(
+            confirmPayload?.error || "Impossible de finaliser l'upload."
+          );
+        }
+      }
+
+      const applyResponse = await authFetch(
+        `${urlFetch}/cards/${createdCardId}/import/apply`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ card: parsedCard }),
+        }
+      );
+      const applyPayload = await applyResponse.json();
+      if (!applyResponse.ok) {
+        throw new Error(applyPayload?.error || "Impossible d'appliquer card.json.");
+      }
+
+      await fetchCards();
+      message.success({ content: "Import termine.", key: importKey });
+    } catch (err) {
+      console.error("Erreur import carte", err);
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) {
+        message.error({
+          content: err.message || "Erreur lors de l'import.",
+          key: importKey,
+        });
+      }
+
+      if (createdCardId) {
+        try {
+          await authFetch(`${urlFetch}/cards/${createdCardId}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+        } catch (_) {}
+      }
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (!authReady) {
     return null;
   }
@@ -200,12 +394,25 @@ const App = ({ nomRepertoire }) => {
           }}
           className="flex flex-col gap-y-10 items-center p-1 md:p-4"
         >
-          <div className="w-full flex justify-end">
+          <div className="w-full flex justify-end gap-2">
+            <Upload
+              accept=".zip"
+              showUploadList={false}
+              disabled={loading || creating || importing}
+              beforeUpload={(file) => {
+                handleImportCardZip(file);
+                return false;
+              }}
+            >
+              <Button disabled={loading || creating || importing}>
+                Importer une carte
+              </Button>
+            </Upload>
             <Button
               type="primary"
               onClick={handleAddCard}
               loading={creating}
-              disabled={loading}
+              disabled={loading || importing}
             >
               Ajouter une carte
             </Button>

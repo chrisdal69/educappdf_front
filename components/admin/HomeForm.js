@@ -84,6 +84,7 @@ const App = ({ nomRepertoire }) => {
             ...payload,
             __source: "admin",
             __classId: user?.classId || null,
+            __repertoire: typeof nomRepertoire === "string" ? nomRepertoire : "",
           })
         );
       } else {
@@ -121,9 +122,14 @@ const App = ({ nomRepertoire }) => {
     if (!canAdminRepertoire) {
       return;
     }
+    const requestedRepertoire =
+      typeof nomRepertoire === "string" ? nomRepertoire.trim() : "";
+    const loadedRepertoire =
+      typeof data?.__repertoire === "string" ? data.__repertoire.trim() : "";
     if (
       data?.__source === "admin" &&
-      String(data?.__classId || "") === String(user?.classId || "")
+      String(data?.__classId || "") === String(user?.classId || "") &&
+      loadedRepertoire === requestedRepertoire
     ) {
       return; // payload admin deja present
     }
@@ -132,9 +138,11 @@ const App = ({ nomRepertoire }) => {
   }, [
     canAdminRepertoire,
     data?.__classId,
+    data?.__repertoire,
     data?.__source,
     fetchCards,
     user?.classId,
+    nomRepertoire,
   ]);
 
   const handleExternalTabChange = (index) => {

@@ -567,12 +567,12 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
             {listMessage.map((obj, i) => {
               return (
                 <div
-                  className="shadow-xl p-2 bg-blue-600 rounded-3xl mb-3 text-blue-50"
+                  className="shadow-xl p-1 bg-primary rounded-xl mb-3 text-blue-50"
                   key={obj?._id || i}
                 >
                   <div className="flex justify-between items-center gap-2 ">
                     <p className="underline underline-offset-4">
-                      <span className="text-2xl  ">@</span>
+                      <span className="text-xl  ">@</span>
                       {obj?.filename} :
                     </p>
                     <Popover

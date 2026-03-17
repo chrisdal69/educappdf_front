@@ -44,6 +44,37 @@ export default function Login(props) {
 
   const busy = isSubmitting;
 
+  const getHoldToRevealButtonProps = (setVisible) => ({
+    onPointerDown: (event) => {
+      event.preventDefault();
+      setVisible(true);
+      try {
+        event.currentTarget?.setPointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerUp: (event) => {
+      setVisible(false);
+      try {
+        event.currentTarget?.releasePointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerCancel: () => setVisible(false),
+    onPointerLeave: () => setVisible(false),
+    onLostPointerCapture: () => setVisible(false),
+    onBlur: () => setVisible(false),
+    onKeyDown: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(true);
+    },
+    onKeyUp: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(false);
+    },
+    onClick: (event) => event.preventDefault(),
+  });
+
   const getTargetPath = (role, directoryname) => {
     const fromPath = (router.asPath || "/").split("?")[0];
     const sanitizedDirectory =
@@ -270,9 +301,14 @@ export default function Login(props) {
                 />
                 <button
                   type="button"
-                  onClick={() => setPasswordVisible(!passwordVisible)}
-                  className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-700"
+                  {...getHoldToRevealButtonProps(setPasswordVisible)}
+                  className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
                   disabled={busy}
+                  aria-label={
+                    passwordVisible
+                      ? "Relâchez pour masquer le mot de passe"
+                      : "Maintenir pour afficher le mot de passe"
+                  }
                 >
                   {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

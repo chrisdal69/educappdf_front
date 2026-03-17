@@ -210,6 +210,37 @@ export default function ForgotWizard() {
   const codeValue = watch("code", "");
   const busy = isLoading || isSubmitting;
 
+  const getHoldToRevealButtonProps = (setVisible) => ({
+    onPointerDown: (event) => {
+      event.preventDefault();
+      setVisible(true);
+      try {
+        event.currentTarget?.setPointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerUp: (event) => {
+      setVisible(false);
+      try {
+        event.currentTarget?.releasePointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerCancel: () => setVisible(false),
+    onPointerLeave: () => setVisible(false),
+    onLostPointerCapture: () => setVisible(false),
+    onBlur: () => setVisible(false),
+    onKeyDown: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(true);
+    },
+    onKeyUp: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(false);
+    },
+    onClick: (event) => event.preventDefault(),
+  });
+
   useEffect(() => {
     setIsCardVisible(true);
     const veilTimeout = setTimeout(() => setIsVeilVisible(true), 1000);
@@ -585,9 +616,14 @@ export default function ForgotWizard() {
                 />
                 <button
                   type="button"
-                  onClick={() => setPasswordVisible(!passwordVisible)}
+                  {...getHoldToRevealButtonProps(setPasswordVisible)}
                   className="absolute right-3 top-2 text-gray-500"
                   disabled={busy}
+                  aria-label={
+                    passwordVisible
+                      ? "Relâchez pour masquer le mot de passe"
+                      : "Maintenir pour afficher le mot de passe"
+                  }
                 >
                   {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -614,9 +650,14 @@ export default function ForgotWizard() {
                 />
                 <button
                   type="button"
-                  onClick={() => setConfirmVisible(!confirmVisible)}
+                  {...getHoldToRevealButtonProps(setConfirmVisible)}
                   className="absolute right-3 top-2 text-gray-500"
                   disabled={busy}
+                  aria-label={
+                    confirmVisible
+                      ? "Relâchez pour masquer le mot de passe"
+                      : "Maintenir pour afficher le mot de passe"
+                  }
                 >
                   {confirmVisible ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

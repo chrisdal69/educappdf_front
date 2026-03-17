@@ -170,6 +170,37 @@ export default function Changemail() {
 
   const busy = isLoading;
 
+  const getHoldToRevealButtonProps = (setVisible) => ({
+    onPointerDown: (event) => {
+      event.preventDefault();
+      setVisible(true);
+      try {
+        event.currentTarget?.setPointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerUp: (event) => {
+      setVisible(false);
+      try {
+        event.currentTarget?.releasePointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerCancel: () => setVisible(false),
+    onPointerLeave: () => setVisible(false),
+    onLostPointerCapture: () => setVisible(false),
+    onBlur: () => setVisible(false),
+    onKeyDown: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(true);
+    },
+    onKeyUp: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(false);
+    },
+    onClick: (event) => event.preventDefault(),
+  });
+
   const requestForm = useForm({
     resolver: yupResolver(requestSchema),
     mode: "onChange",
@@ -405,13 +436,13 @@ export default function Changemail() {
                 />
                 <button
                   type="button"
-                  onClick={() => setPasswordVisible((v) => !v)}
+                  {...getHoldToRevealButtonProps(setPasswordVisible)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                   disabled={busy || !isAuthenticated}
                   aria-label={
                     passwordVisible
-                      ? "Masquer le mot de passe"
-                      : "Afficher le mot de passe"
+                      ? "Relâchez pour masquer le mot de passe"
+                      : "Maintenir pour afficher le mot de passe"
                   }
                 >
                   {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}

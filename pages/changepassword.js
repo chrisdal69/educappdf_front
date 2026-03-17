@@ -70,6 +70,37 @@ export default function ChangePassword() {
   const newPassword = watch("newPassword", "");
   const busy = isLoading || isSubmitting;
 
+  const getHoldToRevealButtonProps = (setVisible) => ({
+    onPointerDown: (event) => {
+      event.preventDefault();
+      setVisible(true);
+      try {
+        event.currentTarget?.setPointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerUp: (event) => {
+      setVisible(false);
+      try {
+        event.currentTarget?.releasePointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerCancel: () => setVisible(false),
+    onPointerLeave: () => setVisible(false),
+    onLostPointerCapture: () => setVisible(false),
+    onBlur: () => setVisible(false),
+    onKeyDown: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(true);
+    },
+    onKeyUp: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(false);
+    },
+    onClick: (event) => event.preventDefault(),
+  });
+
   // ✅ Vérifie en direct la robustesse
   useEffect(() => {
     setPasswordRules({
@@ -247,9 +278,14 @@ export default function ChangePassword() {
             />
             <button
               type="button"
-              onClick={() => setOldPasswordVisible(!oldPasswordVisible)}
+              {...getHoldToRevealButtonProps(setOldPasswordVisible)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
               disabled={busy}
+              aria-label={
+                oldPasswordVisible
+                  ? "Relâchez pour masquer le mot de passe"
+                  : "Maintenir pour afficher le mot de passe"
+              }
             >
               {oldPasswordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -280,13 +316,18 @@ export default function ChangePassword() {
            />
            <button
             type="button"
-            onClick={() => setPasswordVisible(!passwordVisible)}
+            {...getHoldToRevealButtonProps(setPasswordVisible)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
             disabled={busy}
+            aria-label={
+              passwordVisible
+                ? "Relâchez pour masquer le mot de passe"
+                : "Maintenir pour afficher le mot de passe"
+            }
           >
               {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
-          </div>
+           </div>
 
           {errors.newPassword && (
             <p className="text-sm text-red-600 mt-1">
@@ -317,13 +358,18 @@ export default function ChangePassword() {
            />
            <button
               type="button"
-            onClick={() => setConfirmVisible(!confirmVisible)}
+            {...getHoldToRevealButtonProps(setConfirmVisible)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
             disabled={busy}
+            aria-label={
+              confirmVisible
+                ? "Relâchez pour masquer le mot de passe"
+                : "Maintenir pour afficher le mot de passe"
+            }
           >
               {confirmVisible ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
-          </div>
+           </div>
           {errors.confirmPassword && (
             <p className="text-sm text-red-600 mt-1">
               {errors.confirmPassword.message}

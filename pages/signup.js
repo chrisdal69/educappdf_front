@@ -221,6 +221,37 @@ export default function SignupWizard() {
     special: false,
   });
 
+  const getHoldToRevealButtonProps = (setVisible) => ({
+    onPointerDown: (event) => {
+      event.preventDefault();
+      setVisible(true);
+      try {
+        event.currentTarget?.setPointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerUp: (event) => {
+      setVisible(false);
+      try {
+        event.currentTarget?.releasePointerCapture?.(event.pointerId);
+      } catch {}
+    },
+    onPointerCancel: () => setVisible(false),
+    onPointerLeave: () => setVisible(false),
+    onLostPointerCapture: () => setVisible(false),
+    onBlur: () => setVisible(false),
+    onKeyDown: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(true);
+    },
+    onKeyUp: (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      setVisible(false);
+    },
+    onClick: (event) => event.preventDefault(),
+  });
+
   const steps = [
     "Code professeur",
     "Identité",
@@ -963,9 +994,14 @@ export default function SignupWizard() {
                     />
                     <button
                       type="button"
-                      onClick={() => setPasswordVisible((v) => !v)}
+                      {...getHoldToRevealButtonProps(setPasswordVisible)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                       disabled={isLoading}
+                      aria-label={
+                        passwordVisible
+                          ? "Relâchez pour masquer le mot de passe"
+                          : "Maintenir pour afficher le mot de passe"
+                      }
                     >
                       {passwordVisible ? (
                         <EyeOff size={18} />
@@ -1001,9 +1037,14 @@ export default function SignupWizard() {
                     />
                     <button
                       type="button"
-                      onClick={() => setConfirmVisible((v) => !v)}
+                      {...getHoldToRevealButtonProps(setConfirmVisible)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                       disabled={isLoading}
+                      aria-label={
+                        confirmVisible
+                          ? "Relâchez pour masquer le mot de passe"
+                          : "Maintenir pour afficher le mot de passe"
+                      }
                     >
                       {confirmVisible ? (
                         <EyeOff size={18} />
@@ -1081,13 +1122,13 @@ export default function SignupWizard() {
                     />
                     <button
                       type="button"
-                      onClick={() => setExistingPasswordVisible((v) => !v)}
+                      {...getHoldToRevealButtonProps(setExistingPasswordVisible)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                       disabled={isLoading}
                       aria-label={
                         existingPasswordVisible
-                          ? "Masquer le mot de passe"
-                          : "Afficher le mot de passe"
+                          ? "Relâchez pour masquer le mot de passe"
+                          : "Maintenir pour afficher le mot de passe"
                       }
                     >
                       {existingPasswordVisible ? (

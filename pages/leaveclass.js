@@ -117,6 +117,7 @@ export default function LeaveClass() {
           Pour te désinscrire de la classe {user?.publicname}, écris dans le champ
           ci-dessous : "{EXPECTED_PHRASE}"
         </p>
+        <span className="text-red-400">Attention, tous les fichiers uploadés seront supprimés.</span>
 
         {message && <p className="text-center mt-4 text-primary">{message}</p>}
 

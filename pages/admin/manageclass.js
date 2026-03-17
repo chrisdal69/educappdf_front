@@ -896,7 +896,7 @@ export default function ManageClass() {
                                 <span className="font-semibold">
                                   {CONFIRM_TEXT}
                                 </span>
-                                .
+                                . <span className="text-red-400">Attention, tous les fichiers uploadés par cet élève seront supprimés.</span>
                               </div>
                               <Input
                                 value={deleteConfirmText}

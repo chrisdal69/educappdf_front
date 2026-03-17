@@ -197,6 +197,62 @@ const App = ({ nomRepertoire }) => {
     return parts.length ? parts[parts.length - 1] : normalized;
   };
 
+  const isSafeFileName = (value) => {
+    if (!value || typeof value !== "string") return false;
+    if (value.length > 200) return false;
+    if (value.includes("/") || value.includes("\\") || value.includes("..")) return false;
+    return true;
+  };
+
+  const isAllowedFlashImageName = (value) => {
+    if (!isSafeFileName(value)) return false;
+    const lower = value.toLowerCase();
+    return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png");
+  };
+
+  const collectExpectedZipFileNames = (cardJson) => {
+    const required = new Set();
+
+    const bg = typeof cardJson?.bg === "string" ? cardJson.bg.trim() : "";
+    if (bg) {
+      if (!isSafeFileName(bg)) {
+        throw new Error("card.json contient un nom de background invalide.");
+      }
+      required.add(bg);
+    }
+
+    const fichiers = Array.isArray(cardJson?.fichiers) ? cardJson.fichiers : [];
+    fichiers.forEach((entry) => {
+      const href = typeof entry?.href === "string" ? entry.href.trim() : "";
+      if (!href) return;
+      if (!isSafeFileName(href)) {
+        throw new Error("card.json contient un nom de fichier invalide (fichiers.href).");
+      }
+      required.add(href);
+    });
+
+    const flash = Array.isArray(cardJson?.flash) ? cardJson.flash : [];
+    flash.forEach((entry) => {
+      const rawQuestion =
+        typeof entry?.imquestion === "string" ? entry.imquestion.trim() : "";
+      const rawReponse =
+        typeof entry?.imreponse === "string" ? entry.imreponse.trim() : "";
+      const imquestion = rawQuestion ? getZipBaseName(rawQuestion) : "";
+      const imreponse = rawReponse ? getZipBaseName(rawReponse) : "";
+
+      if (rawQuestion && (!imquestion || !isAllowedFlashImageName(imquestion))) {
+        throw new Error("card.json contient un nom d'image flash invalide (imquestion).");
+      }
+      if (rawReponse && (!imreponse || !isAllowedFlashImageName(imreponse))) {
+        throw new Error("card.json contient un nom d'image flash invalide (imreponse).");
+      }
+      if (imquestion) required.add(imquestion);
+      if (imreponse) required.add(imreponse);
+    });
+
+    return required;
+  };
+
   const guessContentType = (name = "") => {
     const lower = `${name}`.toLowerCase();
     if (lower.endsWith(".png")) return "image/png";
@@ -285,6 +341,45 @@ const App = ({ nomRepertoire }) => {
         throw new Error("card.json est invalide.");
       }
 
+      const fileEntries = entries.filter((entry) =>
+        `${entry.name}`.replace(/\\/g, "/").startsWith("files/")
+      );
+
+      // Preflight: le JSON reference-t-il des fichiers absents du zip ?
+      let expectedFiles = new Set();
+      try {
+        expectedFiles = collectExpectedZipFileNames(parsedCard);
+      } catch (preflightError) {
+        const msg =
+          preflightError?.message ||
+          "Zip invalide : card.json contient des references invalides.";
+        message.error({ content: msg, key: importKey });
+        return;
+      }
+      if (expectedFiles.size > 0) {
+        const present = new Set();
+        fileEntries.forEach((entry) => {
+          const entryName = `${entry.name}`.replace(/\\/g, "/");
+          const relativePath = entryName.slice("files/".length);
+          const normalized = `${relativePath}`.replace(/\\/g, "/").replace(/^\/+/, "");
+          if (normalized) {
+            present.add(normalized);
+          }
+        });
+        const missing = Array.from(expectedFiles).filter((name) => !present.has(name));
+        if (missing.length) {
+          console.warn("Import zip invalide: fichiers manquants", missing);
+          const preview = missing.slice(0, 6).join(", ");
+          const suffix =
+            missing.length > 6 ? ` (+${missing.length - 6} autres)` : "";
+          message.error({
+            content: `Zip invalide : ${missing.length} fichier(s) reference(s) dans card.json manquant(s) dans /files : ${preview}${suffix}`,
+            key: importKey,
+          });
+          return;
+        }
+      }
+
       const createResponse = await authFetch(`${urlFetch}/cards/admin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -299,10 +394,6 @@ const App = ({ nomRepertoire }) => {
       if (!createdCardId) {
         throw new Error("Identifiant de carte manquant apres creation.");
       }
-
-      const fileEntries = entries.filter((entry) =>
-        `${entry.name}`.replace(/\\/g, "/").startsWith("files/")
-      );
 
       setImportProgress({
         stage: "upload",

@@ -20,6 +20,7 @@ import {
   CheckOutlined,
   CloseOutlined,
   MailOutlined,
+  FileAddOutlined,
   ExclamationCircleOutlined,
   FilePdfOutlined,
   FileImageOutlined,
@@ -48,6 +49,24 @@ const CLOUD_SCROLL_HEIGHT = 200;
 const { Dragger } = Upload;
 const { Text } = Typography;
 const { Option } = Select;
+const ALLOWED_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".txt",
+  ".py",
+  ".html",
+  ".css",
+  ".js",
+  ".ggb",
+  ".fls",
+];
+const MAX_BYTES = 5 * 1024 * 1024;
 
 const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded }) => {
   const [form] = Form.useForm();
@@ -71,6 +90,10 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
   const [messageVisible, setMessageVisible] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [messageSending, setMessageSending] = useState(false);
+  const [addVisible, setAddVisible] = useState(null);
+  const [addSelectedFile, setAddSelectedFile] = useState(null);
+  const [addFileList, setAddFileList] = useState([]);
+  const [addUploadingIndex, setAddUploadingIndex] = useState(null);
 
   const dispatch = useDispatch();
   const router = useRouter();
@@ -221,19 +244,129 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
   };
 
   const handleRenameClick = (file, index) => {
+    setAddVisible(null);
+    setAddSelectedFile(null);
+    setAddFileList([]);
     setRenameVisible(index);
     setNewName(file.name.split("/").pop().split("___").pop());
   };
 
   const handleDeleteClick = (index) => {
+    setAddVisible(null);
+    setAddSelectedFile(null);
+    setAddFileList([]);
     setDeleteVisible(index);
     clearTimeout(deleteTimer.current);
     deleteTimer.current = setTimeout(() => setDeleteVisible(null), 2000);
   };
 
   const handleMessageClick = (index) => {
+    setAddVisible(null);
+    setAddSelectedFile(null);
+    setAddFileList([]);
     setMessageVisible(index);
     setMessageText("");
+  };
+
+  const closeAdd = () => {
+    setAddVisible(null);
+    setAddSelectedFile(null);
+    setAddFileList([]);
+    setAddUploadingIndex(null);
+  };
+
+  const toggleAdd = (index) => {
+    setRenameVisible(null);
+    setDeleteVisible(null);
+    setMessageVisible(null);
+    setNewName("");
+    setMessageText("");
+    setAddSelectedFile(null);
+    setAddFileList([]);
+    setAddVisible((prev) => (prev === index ? null : index));
+  };
+
+  const handleAddBeforeUpload = (file) => {
+    const ext = `.${(file.name || "").split(".").pop()?.toLowerCase() || ""}`;
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      message.error("Extension non autorisée pour ce fichier.");
+      return Upload.LIST_IGNORE;
+    }
+    if (file.size && file.size > MAX_BYTES) {
+      message.error("Fichier trop volumineux (5 Mo max).");
+      return Upload.LIST_IGNORE;
+    }
+    setAddSelectedFile(file);
+    setAddFileList([file]);
+    return false;
+  };
+
+  const handleAddUploadChange = ({ fileList: newList }) => {
+    if (!newList || newList.length === 0) {
+      setAddSelectedFile(null);
+      setAddFileList([]);
+      return;
+    }
+    const last = newList[newList.length - 1]?.originFileObj;
+    setAddSelectedFile(last || null);
+    setAddFileList(last ? [newList[newList.length - 1]] : []);
+  };
+
+  const handleAddFile = async ({ prefix }) => {
+    const trimmedPrefix = typeof prefix === "string" ? prefix.trim() : "";
+    if (!trimmedPrefix) {
+      message.error("Prefix introuvable pour ce fichier.");
+      return;
+    }
+    if (!addSelectedFile) {
+      message.error("Aucun fichier sélectionné.");
+      return;
+    }
+    if (upload || addUploadingIndex !== null) return;
+
+    setUpload(true);
+    setAddUploadingIndex(addVisible);
+
+    const formData = new FormData();
+    formData.append("parent", "cloud");
+    formData.append("repertoire", `${repertoire}`);
+    formData.append("num", `${num}`);
+    formData.append("prefix", trimmedPrefix);
+    formData.append("fichiers", addSelectedFile);
+
+    try {
+      const res = await authFetch(`${urlFetch}/upload/addA`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (_) {}
+
+      if (!res.ok || data.result === false) {
+        const msg = data.error || data.message || "Erreur lors de l’upload";
+        console.error("Upload addA error:", msg);
+        message.error(msg);
+        return;
+      }
+
+      if (data.result) {
+        await onRecup();
+        message.success("Fichier ajouté !");
+        closeAdd();
+      }
+    } catch (err) {
+      console.error("Erreur upload addA:", err);
+      const handled = handleAuthError(err, { dispatch, router });
+      if (!handled) {
+        message.error("Erreur lors de l’upload");
+      }
+    } finally {
+      setUpload(false);
+      setAddUploadingIndex(null);
+    }
   };
 
   const handleConfirmRename = async (file) => {
@@ -526,7 +659,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
     updateHeight();
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
-  }, [filteredFiles]);
+  }, [filteredFiles, addVisible]);
 
   function splitMajMin(value) {
     const str = typeof value === "string" ? value : "";
@@ -667,184 +800,288 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
                 const isRenameOpen = renameVisible === index;
                 const isDeleteOpen = deleteVisible === index;
                 const isMessageOpen = messageVisible === index;
+                const isAddOpen = addVisible === index;
+                const isAddUploading = addUploadingIndex === index;
 
-                const ownerPrefix = fullName.split("___")[0] ?? "";
-                const reduceName = fullName.split("___").slice(1).join("___") ?? "";
+                const nameParts = fullName.split("___");
+                const ownerPrefix =
+                  nameParts.length > 1 ? (nameParts[0] ?? "") : "";
+                const reduceName =
+                  nameParts.length > 1 ? nameParts.slice(1).join("___") : "";
+                const canAdd =
+                  typeof ownerPrefix === "string" && ownerPrefix.trim() !== "";
 
                 return (
-                  <List.Item className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 px-2 py-1 border-b border-gray-100 last:border-b-0">
-                    <div className="flex items-center gap-2">
-                      {getFilePreview(file)}
-                      <a href={file.url} target="_blank" rel="noreferrer">
-                        <Text className="file-name">{fullName}</Text>
-                      </a>
-                    </div>
-
-                    <div className="flex gap-2 justify-center md:justify-end">
-                      <Popover
-                        placement="bottom"
-                        open={isRenameOpen}
-                        onOpenChange={(visible) =>
-                          setRenameVisible(visible ? index : null)
-                        }
-                        trigger="click"
-                        content={
-                          <Space>
-                            <Input
-                              size="small"
-                              value={newName}
-                              onChange={(e) => setNewName(e.target.value)}
-                              placeholder="Nouveau nom"
-                            />
-                            <Tooltip
-                              title="Valider le nouveau nom"
-                              mouseEnterDelay={0.3}
-                            >
-                              <Button
-                                type="primary"
-                                size="small"
-                                icon={<CheckOutlined />}
-                                onClick={() => handleConfirmRename(file)}
-                              />
-                            </Tooltip>
-                            <Tooltip title="Annuler" mouseEnterDelay={0.3}>
-                              <Button
-                                size="small"
-                                icon={<CloseOutlined />}
-                                onClick={() => setRenameVisible(null)}
-                              />
-                            </Tooltip>
-                          </Space>
-                        }
-                      >
-                        <Tooltip
-                          title="Renommer le fichier"
-                          mouseEnterDelay={0.3}
+                  <List.Item className="flex flex-col items-stretch px-2 py-1 border-b border-gray-100 last:border-b-0">
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        {getFilePreview(file)}
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="min-w-0"
                         >
-                          <Button
-                            icon={<EditOutlined />}
-                            size="small"
-                            className={isRenameOpen ? "btn-active" : ""}
-                            onClick={() => handleRenameClick(file, index)}
-                          />
-                        </Tooltip>
-                      </Popover>
+                          <Text className="file-name break-words">
+                            {fullName}
+                          </Text>
+                        </a>
+                      </div>
 
-                      <Popover
-                        placement="bottom"
-                        open={isMessageOpen}
-                        onOpenChange={(visible) =>
-                          setMessageVisible(visible ? index : null)
-                        }
-                        trigger="click"
-                        content={
-                          <Space direction="vertical">
-                            <Input.TextArea
-                              rows={5}
-                              value={messageText}
-                              onChange={(e) => setMessageText(e.target.value)}
-                              placeholder= {`message à ${ownerPrefix}`}
-                              style={{ width: "min(600px, 85vw)" }}
-                              disabled={messageSending}
-                            />
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        <Popover
+                          placement="bottom"
+                          open={isRenameOpen}
+                          onOpenChange={(visible) =>
+                            setRenameVisible(visible ? index : null)
+                          }
+                          trigger="click"
+                          content={
                             <Space>
+                              <Input
+                                size="small"
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                                placeholder="Nouveau nom"
+                              />
                               <Tooltip
-                                title="Valider le message"
+                                title="Valider le nouveau nom"
                                 mouseEnterDelay={0.3}
                               >
                                 <Button
                                   type="primary"
                                   size="small"
                                   icon={<CheckOutlined />}
-                                  loading={messageSending}
-                                  onClick={() =>
-                                    handleSendMessage({
-                                      prefix: ownerPrefix,
-                                      text: messageText,
-                                      filename: reduceName,
-                                    })
-                                  }
+                                  onClick={() => handleConfirmRename(file)}
                                 />
                               </Tooltip>
                               <Tooltip title="Annuler" mouseEnterDelay={0.3}>
                                 <Button
                                   size="small"
                                   icon={<CloseOutlined />}
-                                  onClick={() => setMessageVisible(null)}
-                                  disabled={messageSending}
+                                  onClick={() => setRenameVisible(null)}
                                 />
                               </Tooltip>
                             </Space>
-                          </Space>
-                        }
-                      >
-                        <Tooltip
-                          title="Envoyer un message"
-                          mouseEnterDelay={0.3}
-                        >
-                          <Button
-                            icon={<MailOutlined />}
-                            size="small"
-                            className={isMessageOpen ? "btn-active" : ""}
-                            onClick={() => handleMessageClick(index)}
-                          />
-                        </Tooltip>
-                      </Popover>
-
-                      <Popover
-                        placement="bottom"
-                        open={isDeleteOpen}
-                        onOpenChange={(visible) => {
-                          setDeleteVisible(visible ? index : null);
-                          if (visible) {
-                            clearTimeout(deleteTimer.current);
-                            deleteTimer.current = setTimeout(
-                              () => setDeleteVisible(null),
-                              2000
-                            );
                           }
-                        }}
-                        trigger="click"
-                        content={
-                          <Space>
-                            <ExclamationCircleOutlined
-                              style={{ color: "#faad14" }}
+                        >
+                          <Tooltip
+                            title="Renommer le fichier"
+                            mouseEnterDelay={0.3}
+                          >
+                            <Button
+                              icon={<EditOutlined />}
+                              size="small"
+                              className={isRenameOpen ? "btn-active" : ""}
+                              onClick={() => handleRenameClick(file, index)}
                             />
-                            <span>Supprimer ?</span>
-                            <Tooltip
-                              title="Confirmer la suppression"
-                              mouseEnterDelay={0.3}
-                            >
-                              <Button
-                                danger
-                                size="small"
-                                icon={<CheckOutlined />}
-                                onClick={() => handleDelete(fullName)}
+                          </Tooltip>
+                        </Popover>
+
+                        <Popover
+                          placement="bottom"
+                          open={isMessageOpen}
+                          onOpenChange={(visible) =>
+                            setMessageVisible(visible ? index : null)
+                          }
+                          trigger="click"
+                          content={
+                            <Space direction="vertical">
+                              <Input.TextArea
+                                rows={5}
+                                value={messageText}
+                                onChange={(e) => setMessageText(e.target.value)}
+                                placeholder={`message à ${ownerPrefix}`}
+                                style={{ width: "min(600px, 85vw)" }}
+                                disabled={messageSending}
                               />
-                            </Tooltip>
-                            <Tooltip title="Annuler" mouseEnterDelay={0.3}>
-                              <Button
-                                size="small"
-                                icon={<CloseOutlined />}
-                                onClick={() => setDeleteVisible(null)}
-                              />
-                            </Tooltip>
-                          </Space>
-                        }
-                      >
+                              <Space>
+                                <Tooltip
+                                  title="Valider le message"
+                                  mouseEnterDelay={0.3}
+                                >
+                                  <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<CheckOutlined />}
+                                    loading={messageSending}
+                                    onClick={() =>
+                                      handleSendMessage({
+                                        prefix: ownerPrefix,
+                                        text: messageText,
+                                        filename: reduceName,
+                                      })
+                                    }
+                                  />
+                                </Tooltip>
+                                <Tooltip title="Annuler" mouseEnterDelay={0.3}>
+                                  <Button
+                                    size="small"
+                                    icon={<CloseOutlined />}
+                                    onClick={() => setMessageVisible(null)}
+                                    disabled={messageSending}
+                                  />
+                                </Tooltip>
+                              </Space>
+                            </Space>
+                          }
+                        >
+                          <Tooltip
+                            title="Envoyer un message"
+                            mouseEnterDelay={0.3}
+                          >
+                            <Button
+                              icon={<MailOutlined />}
+                              size="small"
+                              className={isMessageOpen ? "btn-active" : ""}
+                              onClick={() => handleMessageClick(index)}
+                            />
+                          </Tooltip>
+                        </Popover>
+
                         <Tooltip
-                          title="Supprimer ce fichier"
+                          title={
+                            canAdd
+                              ? "Uploader un fichier pour cet utilisateur"
+                              : "Prefix manquant (fichier non rattaché à un utilisateur)"
+                          }
                           mouseEnterDelay={0.3}
                         >
                           <Button
-                            danger
-                            icon={<DeleteOutlined />}
+                            icon={<FileAddOutlined />}
                             size="small"
-                            className={isDeleteOpen ? "btn-active" : ""}
-                            onClick={() => handleDeleteClick(index)}
+                            className={isAddOpen ? "btn-active" : ""}
+                            onClick={() => toggleAdd(index)}
+                            disabled={!canAdd || upload || messageSending}
                           />
                         </Tooltip>
-                      </Popover>
+
+                        <Popover
+                          placement="bottom"
+                          open={isDeleteOpen}
+                          onOpenChange={(visible) => {
+                            setDeleteVisible(visible ? index : null);
+                            if (visible) {
+                              clearTimeout(deleteTimer.current);
+                              deleteTimer.current = setTimeout(
+                                () => setDeleteVisible(null),
+                                2000
+                              );
+                            }
+                          }}
+                          trigger="click"
+                          content={
+                            <Space>
+                              <ExclamationCircleOutlined
+                                style={{ color: "#faad14" }}
+                              />
+                              <span>Supprimer ?</span>
+                              <Tooltip
+                                title="Confirmer la suppression"
+                                mouseEnterDelay={0.3}
+                              >
+                                <Button
+                                  danger
+                                  size="small"
+                                  icon={<CheckOutlined />}
+                                  onClick={() => handleDelete(fullName)}
+                                />
+                              </Tooltip>
+                              <Tooltip title="Annuler" mouseEnterDelay={0.3}>
+                                <Button
+                                  size="small"
+                                  icon={<CloseOutlined />}
+                                  onClick={() => setDeleteVisible(null)}
+                                />
+                              </Tooltip>
+                            </Space>
+                          }
+                        >
+                          <Tooltip
+                            title="Supprimer ce fichier"
+                            mouseEnterDelay={0.3}
+                          >
+                            <Button
+                              danger
+                              icon={<DeleteOutlined />}
+                              size="small"
+                              className={isDeleteOpen ? "btn-active" : ""}
+                              onClick={() => handleDeleteClick(index)}
+                            />
+                          </Tooltip>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`w-full overflow-hidden rounded bg-white/60 shadow-sm transition-all duration-1000 ease-in-out ${
+                        isAddOpen
+                          ? "mt-2 max-h-[420px] opacity-100 p-3 border border-dashed border-gray-300"
+                          : "mt-0 max-h-0 opacity-0 p-0 pointer-events-none border-0"
+                      }`}
+                      aria-hidden={!isAddOpen}
+                    >
+                      <div className="relative flex flex-col gap-3">
+                        <Dragger
+                          name="file"
+                          multiple={false}
+                          beforeUpload={handleAddBeforeUpload}
+                          onChange={handleAddUploadChange}
+                          fileList={addFileList}
+                          accept={ALLOWED_EXTENSIONS.join(",")}
+                          showUploadList={{
+                            showRemoveIcon: true,
+                            showPreviewIcon: false,
+                          }}
+                          maxCount={1}
+                          disabled={upload || isAddUploading}
+                          onRemove={() => {
+                            setAddSelectedFile(null);
+                            setAddFileList([]);
+                          }}
+                        >
+                          <p className="ant-upload-drag-icon">
+                            <InboxOutlined />
+                          </p>
+                          <p className="ant-upload-text">
+                            Glissez-déposez un fichier ou cliquez
+                          </p>
+                          <p className="ant-upload-hint">
+                            Extensions autorisées :{" "}
+                            {ALLOWED_EXTENSIONS.join(", ")} - 5 Mo max
+                          </p>
+                        </Dragger>
+                        <div className="flex justify-end gap-2">
+                          <Tooltip
+                            title="Annuler l'ajout"
+                            mouseEnterDelay={0.3}
+                          >
+                            <Button
+                              size="small"
+                              icon={<CloseOutlined />}
+                              onClick={() => closeAdd()}
+                              disabled={upload || isAddUploading}
+                            >
+                              Annuler
+                            </Button>
+                          </Tooltip>
+                          <Tooltip
+                            title="Uploader le fichier"
+                            mouseEnterDelay={0.3}
+                          >
+                            <Button
+                              size="small"
+                              type="primary"
+                              icon={<FileAddOutlined />}
+                              loading={upload && isAddUploading}
+                              disabled={!addSelectedFile || upload}
+                              onClick={() => handleAddFile({ prefix: ownerPrefix })}
+                            >
+                              Uploader
+                            </Button>
+                          </Tooltip>
+                        </div>
+                      </div>
                     </div>
                   </List.Item>
                 );

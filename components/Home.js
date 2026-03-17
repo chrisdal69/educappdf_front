@@ -386,9 +386,94 @@ const App = ({ repertoire }) => {
 export default App;
 
 function Accueil({ titre }) {
+  const containerRef = useRef(null);
+  const labelRef = useRef(null);
+  const titleRef = useRef(null);
+  const [titleFontSizePx, setTitleFontSizePx] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const fitTitle = () => {
+      const containerEl = containerRef.current;
+      const labelEl = labelRef.current;
+      const titleEl = titleRef.current;
+      if (!containerEl || !titleEl) return;
+
+      const availableWidth = containerEl.clientWidth;
+      const availableHeight =
+        containerEl.clientHeight - (labelEl?.offsetHeight || 0);
+      if (availableWidth <= 0 || availableHeight <= 0) return;
+
+      const MAX_PX = 60; // tailwind text-6xl ~= 60px
+      const MIN_PX = 12;
+
+      const previousFontSize = titleEl.style.fontSize;
+      const previousMaxWidth = titleEl.style.maxWidth;
+
+      // Assure une mesure fiable + casse des mots très longs
+      titleEl.style.maxWidth = "100%";
+
+      const fits = (px) => {
+        titleEl.style.fontSize = `${px}px`;
+        return (
+          titleEl.scrollWidth <= availableWidth &&
+          titleEl.scrollHeight <= availableHeight
+        );
+      };
+
+      let low = MIN_PX;
+      let high = MAX_PX;
+      let best = MIN_PX;
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        if (fits(mid)) {
+          best = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      titleEl.style.fontSize = previousFontSize;
+      titleEl.style.maxWidth = previousMaxWidth;
+      setTitleFontSizePx((prev) => (prev === best ? prev : best));
+    };
+
+    const run = () => {
+      // Deux frames pour laisser Framer Motion appliquer ses styles initiaux.
+      requestAnimationFrame(() => requestAnimationFrame(fitTitle));
+    };
+
+    run();
+    const afterAnimation = window.setTimeout(run, 2200);
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => run())
+        : null;
+    if (ro && containerRef.current) {
+      ro.observe(containerRef.current);
+    } else {
+      window.addEventListener("resize", run);
+    }
+
+    return () => {
+      window.clearTimeout(afterAnimation);
+      if (ro) {
+        ro.disconnect();
+      } else {
+        window.removeEventListener("resize", run);
+      }
+    };
+  }, [titre]);
+
   return (
-    <div className=" h-55 flex flex-col justify-center  my-10 md:my-20  mx-7 overflow-hidden">
+    <div
+      ref={containerRef}
+      className=" h-55 flex flex-col justify-center  my-10 md:my-20  mx-7 overflow-hidden"
+    >
       <motion.p
+        ref={labelRef}
         initial={{
           opacity: 0,
           x: 0,
@@ -416,6 +501,7 @@ function Accueil({ titre }) {
         Chapitre en cours :
       </motion.p>
       <motion.p
+        ref={titleRef}
         initial={{
           opacity: 0,
           x: 0,
@@ -437,8 +523,12 @@ function Accueil({ titre }) {
           ease: [0.16, 1, 0.3, 1],
           delay: 0.05,
         }}
-        className="text-center leading-tight text-6xl font-script"
+        className="text-center leading-tight text-6xl font-script break-words"
         whileHover={{ x: 5 }}
+        style={{
+          fontSize: titleFontSizePx ? `${titleFontSizePx}px` : undefined,
+          overflowWrap: "anywhere",
+        }}
       >
         {titre}
       </motion.p>

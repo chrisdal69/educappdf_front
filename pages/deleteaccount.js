@@ -103,7 +103,7 @@ export default function DeleteAccount() {
           Pour supprimer DEFINITIVEMENT ton compte MathsApp, écris dans le champ
           ci-dessous : "{EXPECTED_PHRASE}"
         </p>
-
+<span className="text-red-400">Attention, tous les fichiers uploadés seront supprimés.</span>
         {message && <p className="text-center mt-4 text-primary">{message}</p>}
 
         <div className="text-center mt-4 space-y-4">

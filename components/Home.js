@@ -191,7 +191,7 @@ const App = ({ repertoire }) => {
               borderRadius: borderRadiusLG,
               marginTop: 0,
             }}
-            className="grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-6 items-start "
+            className="grid  grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-6 items-start "
           >
             {isLoading && (
               <div className="col-span-full flex flex-col items-center py-10">
@@ -230,7 +230,7 @@ const App = ({ repertoire }) => {
                       onClick={() =>
                         isExpanded ? handleCollapse() : handleExpand(key)
                       }
-                      className=" cursor-pointer mx-5 my-10 md:my-20"
+                      className=" cursor-pointer mx-5 mt-5 md:my-10"
                       style={{
                         zIndex: isExpanded ? 20 : 1,
                         pointerEvents: isExpanded ? "none" : "auto",

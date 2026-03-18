@@ -113,6 +113,10 @@ export default function Nav(props) {
   const rawRepertoire = Array.isArray(router.query.repertoire)
     ? router.query.repertoire[0]
     : router.query.repertoire;
+  const repertoireTitle =
+    typeof rawRepertoire === "string" && rawRepertoire.trim()
+      ? tabs.find((tab) => tab.slug === rawRepertoire)?.label || rawRepertoire
+      : "";
   const dynamicKey = slugToTab[rawRepertoire];
 
   const selectedKey = !router.isReady
@@ -272,14 +276,6 @@ export default function Nav(props) {
           className="nav-header"
           style={{ display: "flex", alignItems: "center" }}
         >
-          <Menu
-            className="nav-menu nav-menu--desktop"
-            theme="dark"
-            mode="horizontal"
-            selectedKeys={selectedKeys}
-            items={items}
-            style={{ flex: 1, justifyContent: "flex-end" }}
-          />
           <button
             type="button"
             className="nav-toggle"
@@ -290,6 +286,19 @@ export default function Nav(props) {
           >
             {menuOpen ? <CloseOutlined /> : <MenuOutlined />}
           </button>
+          {useMobileMenu && router.pathname === "/[repertoire]" && repertoireTitle ? (
+            <div className="nav-mobile-title">
+              <span className="nav-mobile-titleText">{repertoireTitle}</span>
+            </div>
+          ) : null}
+          <Menu
+            className="nav-menu nav-menu--desktop"
+            theme="dark"
+            mode="horizontal"
+            selectedKeys={selectedKeys}
+            items={items}
+            style={{ flex: 1, justifyContent: "flex-end" }}
+          />
         </Header>
       </div>
       <div
@@ -309,6 +318,8 @@ export default function Nav(props) {
         .nav-root {
           position: relative;
           width: 100%;
+          --nav-toggle-size: 44px;
+          --nav-icon-size: 30px;
         }
         .nav-measure {
           position: fixed;
@@ -334,9 +345,9 @@ export default function Nav(props) {
           border: none;
           background: transparent;
           color: ${navColors.text};
-          font-size: 30px;
-          width: 44px;
-          height: 44px;
+          font-size: var(--nav-icon-size);
+          width: var(--nav-toggle-size);
+          height: var(--nav-toggle-size);
           display: none;
           align-items: center;
           justify-content: center;
@@ -344,11 +355,39 @@ export default function Nav(props) {
           margin-left: -30px;
           margin-top: 10px;
         }
+        .nav-mobile-title {
+          display: none;
+        }
+        .nav-mobile-titleText {
+          display: inline-block;
+          max-width: 50%;
+          font-size: min(var(--nav-icon-size), calc(90vw / 6.8));
+          line-height: 1.2;
+          padding: 2px 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          text-align: center;
+        }
         .nav-root--mobile .nav-menu--desktop {
           display: none;
         }
         .nav-root--mobile .nav-toggle {
           display: inline-flex;
+          margin-left: 0;
+          margin-top: 0;
+        }
+        .nav-root--mobile .nav-header {
+          padding: 0 12px;
+        }
+        .nav-root--mobile .nav-mobile-title {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: ${navColors.text};
+          min-width: 0;
+          pointer-events: none;
         }
         .nav-drawer {
           position: absolute;

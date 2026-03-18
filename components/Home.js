@@ -99,7 +99,7 @@ const App = ({ repertoire }) => {
     }
 
     const updateAccueilVisibility = () => {
-      setShowAccueil(window.innerWidth >= 810);
+      setShowAccueil(window.innerWidth >= 830);
     };
 
     updateAccueilVisibility();
@@ -187,11 +187,11 @@ const App = ({ repertoire }) => {
            style={{
               background: layoutBgColor,
               minHeight: 20,
-              paddingTop: 10,
+              paddingTop: 0,
               borderRadius: borderRadiusLG,
               marginTop: 0,
             }}
-            className="grid  grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-6 items-start "
+            className="grid grid-cols-1 md:grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-6 items-start px-5"
           >
             {isLoading && (
               <div className="col-span-full flex flex-col items-center py-10">
@@ -203,7 +203,7 @@ const App = ({ repertoire }) => {
             )}
 
             {!isLoading && hasError && (
-              <p className="col-span-full text-red-500 text-sm">
+              <p className="col-span-full text-red-500 text-sm ">
                 {error || "Erreur lors du chargement des cartes."}
               </p>
             )}
@@ -230,7 +230,7 @@ const App = ({ repertoire }) => {
                       onClick={() =>
                         isExpanded ? handleCollapse() : handleExpand(key)
                       }
-                      className=" cursor-pointer mx-5 mt-5 md:my-10"
+                      className="cursor-pointer  my-5 md:mt-10 "
                       style={{
                         zIndex: isExpanded ? 20 : 1,
                         pointerEvents: isExpanded ? "none" : "auto",
@@ -272,7 +272,7 @@ const App = ({ repertoire }) => {
               borderRadius: borderRadiusLG,
               marginTop: 0,
             }}
-            className="py-5 md:p-5 grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-0 md:gap-6 items-start"
+            className="py-5 px-5 md:p-5 grid grid-cols-1 md:grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-6 items-start"
           >
             {!isLoading &&
               !hasError &&
@@ -296,7 +296,7 @@ const App = ({ repertoire }) => {
                       onClick={() =>
                         isExpanded ? handleCollapse() : handleExpand(key)
                       }
-                      className="cursor-pointer m-5 "
+                      className="cursor-pointer"
                       style={{
                         zIndex: isExpanded ? 20 : 1,
                         pointerEvents: isExpanded ? "none" : "auto",
@@ -470,7 +470,7 @@ function Accueil({ titre }) {
   return (
     <div
       ref={containerRef}
-      className=" h-55 flex flex-col justify-center  my-10 md:my-20  mx-7 overflow-hidden"
+      className=" h-55 flex flex-col justify-center  my-5 md:mt-10  mx-7 overflow-hidden"
     >
       <motion.p
         ref={labelRef}

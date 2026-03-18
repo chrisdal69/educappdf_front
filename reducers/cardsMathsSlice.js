@@ -32,7 +32,6 @@ export const fetchCardsMaths = createAsyncThunk(
         }
       );
       const payload = await response.json();
-      console.log('payload',payload)
       if (!response.ok) {
         return rejectWithValue(
           payload?.error || "Erreur lors du chargement des cartes."

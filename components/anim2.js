@@ -269,7 +269,7 @@ function Anim2({ initialPositions, skipIntro = false }) {
           background-color: var(--bg-start);
           color: #1a1a1a;
           overflow: hidden;
-          --bg-start:  #718b79;
+          --bg-start:  #8e9d8b;
           --bg-phasec: #d0d9d8;
           --text-dark: #1a1a1a;
           --text-light: #cfd6d6;

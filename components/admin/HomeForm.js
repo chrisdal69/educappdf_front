@@ -269,6 +269,8 @@ const App = ({ nomRepertoire }) => {
     return "application/octet-stream";
   };
 
+  const IMPORT_FALLBACK_MAX_BYTES = 4 * 1024 * 1024;
+
   const uploadToSignedUrlWithProgress = ({ url, blob, contentType, onProgress }) =>
     new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -292,6 +294,39 @@ const App = ({ nomRepertoire }) => {
       xhr.onerror = () => reject(new Error("Upload direct echoue."));
       xhr.send(blob);
     });
+
+  const uploadImportViaBackend = async ({
+    cardId,
+    relativePath,
+    blob,
+    contentType,
+  }) => {
+    const formData = new FormData();
+    const fileName = `${relativePath}`
+      .replace(/\\/g, "/")
+      .split("/")
+      .filter(Boolean)
+      .pop();
+    formData.append("file", blob, fileName || "file");
+    formData.append("path", relativePath);
+    if (contentType) {
+      formData.append("type", contentType);
+    }
+
+    const response = await authFetch(`${urlFetch}/cards/${cardId}/import/upload`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (_) {}
+    if (!response.ok) {
+      throw new Error(payload?.error || "Upload via backend echoue.");
+    }
+    return payload;
+  };
 
   const handleImportCardZip = async (file) => {
     if (!file) return;
@@ -317,6 +352,7 @@ const App = ({ nomRepertoire }) => {
     });
 
     let createdCardId = null;
+    let usedFallback = false;
 
     try {
       const zip = await JSZip.loadAsync(await file.arrayBuffer());
@@ -445,28 +481,59 @@ const App = ({ nomRepertoire }) => {
           throw new Error("URL d'upload manquante.");
         }
 
-        await uploadToSignedUrlWithProgress({
-          url: signedUrl,
-          blob,
-          contentType: signedContentType,
-          onProgress: (event) => {
-            const totalBytes = event?.total || blob.size || 0;
-            const loadedBytes = event?.loaded || 0;
-            const filePercent =
-              totalBytes > 0 ? Math.floor((loadedBytes / totalBytes) * 100) : 0;
-            const overallPercent = Math.floor(
-              ((idx + filePercent / 100) / Math.max(1, fileEntries.length)) * 100
+        try {
+          await uploadToSignedUrlWithProgress({
+            url: signedUrl,
+            blob,
+            contentType: signedContentType,
+            onProgress: (event) => {
+              const totalBytes = event?.total || blob.size || 0;
+              const loadedBytes = event?.loaded || 0;
+              const filePercent =
+                totalBytes > 0 ? Math.floor((loadedBytes / totalBytes) * 100) : 0;
+              const overallPercent = Math.floor(
+                ((idx + filePercent / 100) / Math.max(1, fileEntries.length)) * 100
+              );
+              setImportProgress({
+                stage: "upload",
+                current: idx + 1,
+                total: fileEntries.length,
+                file: relativePath,
+                percent: Math.max(0, Math.min(100, overallPercent)),
+                filePercent: Math.max(0, Math.min(100, filePercent)),
+              });
+            },
+          });
+        } catch (directError) {
+          const size = Number(blob?.size);
+          const canFallbackBySize =
+            urlFetch ||
+            (Number.isFinite(size) && size > 0 && size <= IMPORT_FALLBACK_MAX_BYTES);
+          if (!canFallbackBySize) {
+            throw new Error(
+              "Upload direct echoue (souvent un probleme CORS Google Cloud Storage). Configurez le CORS du bucket ou importez un fichier plus petit."
             );
-            setImportProgress({
-              stage: "upload",
-              current: idx + 1,
-              total: fileEntries.length,
-              file: relativePath,
-              percent: Math.max(0, Math.min(100, overallPercent)),
-              filePercent: Math.max(0, Math.min(100, filePercent)),
-            });
-          },
-        });
+          }
+          console.warn("Upload direct import echoue, tentative fallback.", directError);
+          await uploadImportViaBackend({
+            cardId: createdCardId,
+            relativePath,
+            blob,
+            contentType: signedContentType,
+          });
+          usedFallback = true;
+          setImportProgress((prev) => ({
+            ...(prev || {}),
+            stage: "upload",
+            current: idx + 1,
+            total: fileEntries.length,
+            file: relativePath,
+            percent: Math.floor(
+              ((idx + 1) / Math.max(1, fileEntries.length)) * 100
+            ),
+            filePercent: 100,
+          }));
+        }
 
         const confirmResponse = await authFetch(
           `${urlFetch}/cards/${createdCardId}/import/confirm`,
@@ -506,7 +573,10 @@ const App = ({ nomRepertoire }) => {
       }
 
       await fetchCards();
-      message.success({ content: "Import termine.", key: importKey });
+      message.success({
+        content: usedFallback ? "Import termine (fallback utilise)." : "Import termine.",
+        key: importKey,
+      });
     } catch (err) {
       console.error("Erreur import carte", err);
       const handled = handleAuthError(err, { dispatch, router });

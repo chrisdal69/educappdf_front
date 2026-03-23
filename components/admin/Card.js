@@ -194,11 +194,10 @@ const CardBlock = (data) => {
       );
       message.success("Titre mis à jour.");
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return;
       console.error("Erreur lors de la mise à jour du titre :", error);
-      const handled = handleAuthError(error, { dispatch, router });
-      if (!handled) {
-        message.error(error.message || "Erreur lors de la mise à jour du titre.");
-      }
+      message.error(error.message || "Erreur lors de la mise à jour du titre.");
     } finally {
       setIsSavingTitle(false);
     }
@@ -242,13 +241,12 @@ const CardBlock = (data) => {
       updateCardsStore(updatedCard);
       message.success(nextVisible ? "Carte rendue visible." : "Carte masquee.");
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return;
       console.error("Erreur lors de la mise a jour de la visibilite :", error);
-      const handled = handleAuthError(error, { dispatch, router });
-      if (!handled) {
-        message.error(
-          error.message || "Erreur lors de la mise a jour de la visibilite."
-        );
-      }
+      message.error(
+        error.message || "Erreur lors de la mise a jour de la visibilite."
+      );
     } finally {
       setIsTogglingVisible(false);
     }
@@ -296,11 +294,10 @@ const CardBlock = (data) => {
       updateCardsStore(updatedCard);
       message.success(nextCloud ? "Cloud active." : "Cloud desactive.");
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return;
       console.error("Erreur lors de la mise a jour du cloud :", error);
-      const handled = handleAuthError(error, { dispatch, router });
-      if (!handled) {
-        message.error(error.message || "Erreur lors de la mise a jour du cloud.");
-      }
+      message.error(error.message || "Erreur lors de la mise a jour du cloud.");
     } finally {
       setIsTogglingCloud(false);
     }
@@ -345,11 +342,10 @@ const CardBlock = (data) => {
       setDeleteConfirmValue("");
       message.success("Carte supprimée.");
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return;
       console.error("Erreur lors de la suppression :", error);
-      const handled = handleAuthError(error, { dispatch, router });
-      if (!handled) {
-        message.error(error.message || "Erreur lors de la suppression.");
-      }
+      message.error(error.message || "Erreur lors de la suppression.");
     } finally {
       setIsDeleting(false);
     }
@@ -398,11 +394,10 @@ const CardBlock = (data) => {
 
       message.success("Carte déplacée.");
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return;
       console.error("Erreur lors du déplacement :", error);
-      const handled = handleAuthError(error, { dispatch, router });
-      if (!handled) {
-        message.error(error.message || "Erreur lors du déplacement.");
-      }
+      message.error(error.message || "Erreur lors du déplacement.");
     } finally {
       setIsMoving(false);
     }
@@ -586,11 +581,10 @@ const CardBlock = (data) => {
 
       message.success("Export termine.");
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return;
       console.error("Erreur export carte", error);
-      const handled = handleAuthError(error, { dispatch, router });
-      if (!handled) {
-        message.error(error.message || "Erreur lors de l'export.");
-      }
+      message.error(error.message || "Erreur lors de l'export.");
     } finally {
       setIsExporting(false);
       stopExportTicker();

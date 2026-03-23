@@ -33,8 +33,9 @@ import {
 } from "@ant-design/icons";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { clearAuth } from "../../reducers/authSlice";
+import { useRouter } from "next/router";
 import { buildCardBaseUrl } from "../../utils/gcsPaths";
+import { handleAuthError, throwIfUnauthorized } from "../../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -68,7 +69,13 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
   const [messageDeleting, setMessageDeleting] = useState(false);
 
   const dispatch = useDispatch();
+  const router = useRouter();
   const deleteTimer = useRef(null);
+  const authFetch = async (url, options) => {
+    const response = await fetch(url, options);
+    throwIfUnauthorized(response);
+    return response;
+  };
   const toBlurFile = (filename = "") => {
     const lastDot = filename.lastIndexOf(".");
     if (lastDot === -1) return `${filename}Blur`;
@@ -109,13 +116,12 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
   }, [isAuthenticated, _id, classId]);
 
   const onFinish = async (values) => {
-    setUpload(true);
     const formData = new FormData();
     if (!values.files) {
-      setUpload(false);
       message.error("Aucun fichier sélectionné");
       return;
     }
+    setUpload(true);
     formData.append("parent", "cloud");
     formData.append("repertoire", `${repertoire}`);
     formData.append("num", `${num}`);
@@ -125,7 +131,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
     });
 
     try {
-      const res = await fetch(`${urlFetch}/upload`, {
+      const res = await authFetch(`${urlFetch}/upload`, {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -135,20 +141,14 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
         data = await res.json();
       } catch (_) {}
 
-      if (res.status === 401 || res.status === 403) {
-        setUpload(false);
-        message.error(data.message || "erreur d’autorisation");
-        setTimeout(() => {
-          form.resetFields();
-          dispatch(clearAuth());
-        }, 3000);
+      if (res.status === 403) {
+        message.error(data.message || "Erreur d’autorisation");
         return;
       }
 
       if (!res.ok || data.result === false) {
         const msg = data.error || data.message || "Erreur lors de l’upload";
         console.error("Upload error:", msg);
-        setUpload(false);
         message.error(msg);
         form.resetFields();
         return;
@@ -157,14 +157,17 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
       if (data.result) {
         await onRecup();
         form.resetFields();
-        setUpload(false);
         message.success("Fichiers uploadés avec succès !");
       }
     } catch (err) {
-      console.error("Erreur upload:", err);
-      setUpload(false);
-      message.error("Erreur lors de l’upload");
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur upload:", err);
+        message.error("Erreur lors de l’upload");
+      }
       form.resetFields();
+    } finally {
+      setUpload(false);
     }
   };
 
@@ -176,7 +179,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
     formData.append("repertoire", `${repertoire}`);
     formData.append("num", `${num}`);
     try {
-      const res = await fetch(`${urlFetch}/upload/recup`, {
+      const res = await authFetch(`${urlFetch}/upload/recup`, {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -185,14 +188,17 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
       setFilesCloud(data);
       console.log(data);
     } catch (err) {
-      console.error("Erreur upload:", err);
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur upload:", err);
+      }
     }
   };
 
   const onRecupMessages = async () => {
     if (!_id) return;
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `${urlFetch}/cards/cloud?id_card=${encodeURIComponent(_id)}&classId=${encodeURIComponent(classId)}`,
         {
           method: "GET",
@@ -214,7 +220,10 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
       const nextList = Array.isArray(data) ? data : data.result;
       setListMessage(Array.isArray(nextList) ? nextList : []);
     } catch (err) {
-      console.error("Erreur messages:", err);
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur messages:", err);
+      }
     }
   };
 
@@ -225,7 +234,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
     }
     setMessageDeleting(true);
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `${urlFetch}/cards/cloud/${encodeURIComponent(messageId)}`,
         {
           method: "DELETE",
@@ -249,8 +258,11 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
       );
       message.success("Message supprime.");
     } catch (err) {
-      console.error("Erreur suppression message:", err);
-      message.error("Erreur de communication avec le serveur");
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur suppression message:", err);
+        message.error("Erreur de communication avec le serveur");
+      }
     } finally {
       setMessageDeleting(false);
       setMessageDeleteVisible(null);
@@ -259,7 +271,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
 
   const handleDelete = async (fileName) => {
     try {
-      const res = await fetch(`${urlFetch}/upload/delete`, {
+      const res = await authFetch(`${urlFetch}/upload/delete`, {
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
@@ -278,8 +290,11 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
         message.error(data.message || "Erreur de suppression");
       }
     } catch (err) {
-      console.error(err);
-      message.error("Erreur de communication avec le serveur");
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error(err);
+        message.error("Erreur de communication avec le serveur");
+      }
     }
     setDeleteVisible(null);
   };
@@ -298,7 +313,7 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
   const handleConfirmRename = async (file) => {
     console.log("handleConfirmRename : ", file.name, newName);
     try {
-      const res = await fetch(`${urlFetch}/upload/rename`, {
+      const res = await authFetch(`${urlFetch}/upload/rename`, {
         method: "POST",
         body: JSON.stringify({
           parent: "cloud",
@@ -318,8 +333,11 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
         message.error(data.message || "Erreur de renommage");
       }
     } catch (err) {
-      console.error(err);
-      message.error("Erreur de communication avec le serveur");
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error(err);
+        message.error("Erreur de communication avec le serveur");
+      }
     }
     setRenameVisible(null);
   };

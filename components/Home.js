@@ -176,7 +176,7 @@ const App = ({ repertoire }) => {
     (card, idx) => getCardKey(card, idx) === expandedId
   );
   const expandedCard = expandedIndex >= 0 ? cards[expandedIndex] : null;
-  const isLoading = status === "loading" || status === "idle";
+  const isLoading = status === "loading" || (status === "idle" && Boolean(activeClassId));
   const hasError = status === "failed";
 
   return (

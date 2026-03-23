@@ -542,9 +542,9 @@ export default function FilesBlock({
       syncCardsStore(updatedCard, nextFiles);
       message.success("Fichier supprime.");
     } catch (error) {
-      console.error("Erreur suppression fichier", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur suppression fichier", error);
         message.error(error.message || "Erreur lors de la suppression.");
       }
     } finally {
@@ -594,9 +594,9 @@ export default function FilesBlock({
       setEditingKey("");
       setEditingValue("");
     } catch (error) {
-      console.error("Erreur edition fichier", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur edition fichier", error);
         message.error(error.message || "Erreur lors de la mise a jour.");
       }
     } finally {
@@ -642,9 +642,9 @@ export default function FilesBlock({
       setEditingHoverKey("");
       setEditingHoverValue("");
     } catch (error) {
-      console.error("Erreur edition texte survol", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur edition texte survol", error);
         message.error(error.message || "Erreur lors de la mise a jour.");
       }
     } finally {
@@ -690,9 +690,9 @@ export default function FilesBlock({
       syncCardsStore(updatedCard, nextFiles);
       message.success(nextVisible ? "Fichier visible." : "Fichier masque.");
     } catch (error) {
-      console.error("Erreur lors du changement de visibilite", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur lors du changement de visibilite", error);
         message.error(
           error.message || "Erreur lors de la mise a jour de la visibilite."
         );
@@ -784,9 +784,9 @@ export default function FilesBlock({
       setLocalFiles(next);
       syncCardsStore(updatedCard, next);
     } catch (error) {
-      console.error("Erreur lors du reordonnancement des fichiers", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur lors du reordonnancement des fichiers", error);
         message.error(
           error.message || "Erreur lors du reordonnancement des fichiers."
         );
@@ -964,9 +964,9 @@ export default function FilesBlock({
       message.success("Fichier remplace.");
       closeReplace();
     } catch (error) {
-      console.error("Erreur lors du remplacement du fichier :", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur lors du remplacement du fichier :", error);
         message.error(
           error.message || "Erreur lors du remplacement du fichier."
         );
@@ -1146,9 +1146,9 @@ export default function FilesBlock({
       resetForm();
       setIsFormOpen(false);
     } catch (error) {
-      console.error("Erreur lors de l'ajout du fichier :", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur lors de l'ajout du fichier :", error);
         message.error(error.message || "Erreur lors de l'ajout du fichier.");
       }
     } finally {

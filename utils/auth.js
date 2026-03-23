@@ -14,11 +14,16 @@ export const throwIfUnauthorized = (response) => {
   }
 };
 
-export const handleAuthError = (error, { dispatch, router } = {}) => {
+export const handleAuthError = (
+  error,
+  { dispatch, router, silent = false } = {}
+) => {
   if (!error) return false;
   const status = error.status;
   if (error.isAuthError || status === 401) {
-    message.error(SESSION_EXPIRED_MESSAGE);
+    if (!silent) {
+      message.error(SESSION_EXPIRED_MESSAGE);
+    }
     if (dispatch) dispatch(clearAuth());
     if (router && typeof router.replace === "function") {
       router.replace("/");

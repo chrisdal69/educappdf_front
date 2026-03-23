@@ -183,10 +183,10 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
         message.success("Fichiers uploadés avec succès !");
       }
     } catch (err) {
-      console.error("Erreur upload:", err);
-      const handled = handleAuthError(err, { dispatch, router });
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
       setUpload(false);
       if (!handled) {
+        console.error("Erreur upload:", err);
         message.error("Erreur lors de l’upload");
       }
       form.resetFields();
@@ -208,8 +208,10 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
       setFilesCloud(data);
       //console.log(data);
     } catch (err) {
-      console.error("Erreur upload:", err);
-      handleAuthError(err, { dispatch, router });
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur upload:", err);
+      }
     }
   };
 
@@ -234,9 +236,9 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
         message.error(data.message || "Erreur de suppression");
       }
     } catch (err) {
-      console.error(err);
-      const handled = handleAuthError(err, { dispatch, router });
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
       if (!handled) {
+        console.error(err);
         message.error("Erreur de communication avec le serveur");
       }
     }
@@ -358,9 +360,9 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
         closeAdd();
       }
     } catch (err) {
-      console.error("Erreur upload addA:", err);
-      const handled = handleAuthError(err, { dispatch, router });
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur upload addA:", err);
         message.error("Erreur lors de l’upload");
       }
     } finally {
@@ -392,9 +394,9 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
         message.error(data.message || "Erreur de renommage");
       }
     } catch (err) {
-      console.error(err);
-      const handled = handleAuthError(err, { dispatch, router });
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
       if (!handled) {
+        console.error(err);
         message.error("Erreur de communication avec le serveur");
       }
     }
@@ -454,9 +456,9 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
       setMessageVisible(null);
       setMessageText("");
     } catch (err) {
-      console.error(err);
-      const handled = handleAuthError(err, { dispatch, router });
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
       if (!handled) {
+        console.error(err);
         message.error("Erreur de communication avec le serveur");
       }
     } finally {
@@ -500,9 +502,9 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, expanded })
       window.URL.revokeObjectURL(downloadUrl);
       message.success("Archive ZIP téléchargée");
     } catch (err) {
-      console.error("Erreur download zip:", err);
-      const handled = handleAuthError(err, { dispatch, router });
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur download zip:", err);
         message.error(err?.message || "Erreur lors du téléchargement ZIP");
       }
     } finally {

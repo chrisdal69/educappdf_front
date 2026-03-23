@@ -7,7 +7,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
-import { setAuthenticated } from "../reducers/authSlice";
+import { clearAuth, setAuthenticated } from "../reducers/authSlice";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -167,8 +167,18 @@ export default function Changemail() {
   const [pendingEmail, setPendingEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [expiresAt, setExpiresAt] = useState(null);
+  const sessionExpiredTimeoutRef = useRef(null);
 
   const busy = isLoading;
+
+  const handleSessionExpired = () => {
+    if (sessionExpiredTimeoutRef.current) return;
+    setMessage("Session expirée - Se reconnecter");
+    sessionExpiredTimeoutRef.current = setTimeout(() => {
+      dispatch(clearAuth());
+      router.replace("/");
+    }, 3000);
+  };
 
   const getHoldToRevealButtonProps = (setVisible) => ({
     onPointerDown: (event) => {
@@ -214,21 +224,34 @@ export default function Changemail() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (sessionExpiredTimeoutRef.current) {
+        clearTimeout(sessionExpiredTimeoutRef.current);
+        sessionExpiredTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const checkAuth = async () => {
       try {
         const res = await fetch(`${urlFetch}/users/me`, {
           method: "GET",
           credentials: "include",
         });
+        if (res.status === 401) {
+          handleSessionExpired();
+          return;
+        }
         if (!res.ok) {
-          router.push("/");
+          router.replace("/");
         }
       } catch (err) {
-        router.push("/");
+        router.replace("/");
       }
     };
     checkAuth();
-  }, [router]);
+  }, [dispatch, router]);
 
   const handleReturn = () => {
     if (shouldReturnToIndexBis) {
@@ -255,6 +278,10 @@ export default function Changemail() {
       });
 
       const json = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        handleSessionExpired();
+        return;
+      }
       if (res.ok) {
         setPendingEmail(String(json?.pendingEmail || data.newEmail));
         setExpiresAt(json?.expiresAt ? new Date(json.expiresAt) : null);
@@ -306,6 +333,10 @@ export default function Changemail() {
         );
         return;
       }
+      if (res.status === 401) {
+        handleSessionExpired();
+        return;
+      }
 
       if (json?.expired) {
         setStep(1);
@@ -334,6 +365,10 @@ export default function Changemail() {
       });
 
       const json = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        handleSessionExpired();
+        return;
+      }
       if (res.ok) {
         setExpiresAt(json?.expiresAt ? new Date(json.expiresAt) : null);
         setMessage(json?.message || "Un nouveau code a été envoyé.");

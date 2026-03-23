@@ -28,6 +28,20 @@ export default function Account(props) {
         method: "POST",
         credentials: "include",
       });
+      if (res.status === 401 || res.status === 403) {
+        setMessage("Session expirée, veuillez vous reconnecter.");
+        dispatch(clearAuth());
+        if (isAdmin) {
+          dispatch(setCardsMaths([]));
+        }
+        props.close();
+        if (typeof window !== "undefined") {
+          window.location.replace("/");
+          return;
+        }
+        router.push("/");
+        return;
+      }
       if (res.ok) {
         const response = await res.json();
         setMessage(response.message);

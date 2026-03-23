@@ -2,7 +2,42 @@ import { message } from "antd";
 import { clearAuth } from "../reducers/authSlice";
 
 export const SESSION_EXPIRED_MESSAGE =
-  "Session expirée, veuillez vous reconnecter.";
+  "Session expirée - Se reconnecter";
+
+export const createSessionExpiredRedirect = ({
+  dispatch,
+  router,
+  notify,
+  delayMs = 3000,
+  redirectTo = "/",
+} = {}) => {
+  let timeoutId = null;
+  let triggered = false;
+
+  const cancel = () => {
+    if (!timeoutId) return;
+    clearTimeout(timeoutId);
+    timeoutId = null;
+  };
+
+  const trigger = () => {
+    if (triggered) return;
+    triggered = true;
+
+    if (typeof notify === "function") {
+      notify(SESSION_EXPIRED_MESSAGE);
+    }
+
+    timeoutId = setTimeout(() => {
+      if (dispatch) dispatch(clearAuth());
+      if (router && typeof router.replace === "function") {
+        router.replace(redirectTo);
+      }
+    }, delayMs);
+  };
+
+  return { trigger, cancel };
+};
 
 export const throwIfUnauthorized = (response) => {
   if (!response) return;

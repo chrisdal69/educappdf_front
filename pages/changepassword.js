@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -8,7 +8,7 @@ import zxcvbn from "zxcvbn";
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/router";
 import { useDispatch } from "react-redux";
-import { clearAuth } from "../reducers/authSlice";
+import { createSessionExpiredRedirect } from "../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -48,16 +48,18 @@ export default function ChangePassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCardVisible, setIsCardVisible] = useState(false);
   const [isVeilVisible, setIsVeilVisible] = useState(false);
-  const sessionExpiredTimeoutRef = React.useRef(null);
+  const sessionExpiredRef = useRef(null);
 
-  const handleSessionExpired = () => {
-    if (sessionExpiredTimeoutRef.current) return;
-    setMessage("Session expirée - Se reconnecter");
-    sessionExpiredTimeoutRef.current = setTimeout(() => {
-      dispatch(clearAuth());
-      router.replace("/");
-    }, 3000);
-  };
+  if (!sessionExpiredRef.current) {
+    sessionExpiredRef.current = createSessionExpiredRedirect({
+      dispatch,
+      router,
+      notify: setMessage,
+      delayMs: 3000,
+    });
+  }
+
+  const handleSessionExpired = () => sessionExpiredRef.current?.trigger?.();
 
   // 🔹 Indicateurs de robustesse
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -181,12 +183,7 @@ export default function ChangePassword() {
 
   // ✅ Vérification si l'utilisateur est connecté
   useEffect(() => {
-    return () => {
-      if (sessionExpiredTimeoutRef.current) {
-        clearTimeout(sessionExpiredTimeoutRef.current);
-        sessionExpiredTimeoutRef.current = null;
-      }
-    };
+    return () => sessionExpiredRef.current?.cancel?.();
   }, []);
 
   // ✅ Vérification si l'utilisateur est connecté

@@ -9,7 +9,7 @@ import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { buildCardBaseUrl } from "../../utils/gcsPaths";
-import { clearAuth } from "../../reducers/authSlice";
+import { createSessionExpiredRedirect } from "../../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -110,7 +110,7 @@ export default function Quizz({
   const imageTouchHandlersRef = useRef(new Map());
   const pinchStateRef = useRef(new Map());
   const lastTapRef = useRef(new Map());
-  const didExpireRef = useRef(false);
+  const sessionExpiredRef = useRef(null);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
   const [hovered, setHovered] = useState(null);
@@ -131,15 +131,20 @@ export default function Quizz({
   const cardId = _id || id;
   const classId = user?.classId ? String(user.classId) : "";
 
-  const handleSessionExpired = () => {
-    if (didExpireRef.current) return;
-    didExpireRef.current = true;
-    messageApi.error("Session expirée, il faut se reloguer");
-    setTimeout(() => {
-      dispatch(clearAuth());
-      router.replace("/");
-    }, 3000);
-  };
+  if (!sessionExpiredRef.current) {
+    sessionExpiredRef.current = createSessionExpiredRedirect({
+      dispatch,
+      router,
+      notify: (msg) => messageApi.error(msg),
+      delayMs: 3000,
+    });
+  }
+
+  useEffect(() => {
+    return () => sessionExpiredRef.current?.cancel?.();
+  }, []);
+
+  const handleSessionExpired = () => sessionExpiredRef.current?.trigger?.();
 
   const toBlurFile = (filename) => {
     const lastDot = filename.lastIndexOf(".");

@@ -7,7 +7,8 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
-import { clearAuth, setAuthenticated } from "../reducers/authSlice";
+import { setAuthenticated } from "../reducers/authSlice";
+import { createSessionExpiredRedirect } from "../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -167,18 +168,20 @@ export default function Changemail() {
   const [pendingEmail, setPendingEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [expiresAt, setExpiresAt] = useState(null);
-  const sessionExpiredTimeoutRef = useRef(null);
+  const sessionExpiredRef = useRef(null);
 
   const busy = isLoading;
 
-  const handleSessionExpired = () => {
-    if (sessionExpiredTimeoutRef.current) return;
-    setMessage("Session expirée - Se reconnecter");
-    sessionExpiredTimeoutRef.current = setTimeout(() => {
-      dispatch(clearAuth());
-      router.replace("/");
-    }, 3000);
-  };
+  if (!sessionExpiredRef.current) {
+    sessionExpiredRef.current = createSessionExpiredRedirect({
+      dispatch,
+      router,
+      notify: setMessage,
+      delayMs: 3000,
+    });
+  }
+
+  const handleSessionExpired = () => sessionExpiredRef.current?.trigger?.();
 
   const getHoldToRevealButtonProps = (setVisible) => ({
     onPointerDown: (event) => {
@@ -224,12 +227,7 @@ export default function Changemail() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (sessionExpiredTimeoutRef.current) {
-        clearTimeout(sessionExpiredTimeoutRef.current);
-        sessionExpiredTimeoutRef.current = null;
-      }
-    };
+    return () => sessionExpiredRef.current?.cancel?.();
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { useRouter } from "next/router";
 
 import { Radio, Button, Card, Carousel, message } from "antd";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -8,6 +9,7 @@ import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { buildCardBaseUrl } from "../../utils/gcsPaths";
+import { createSessionExpiredRedirect } from "../../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -100,12 +102,15 @@ export default function Quizz({
   bg,
   isExpanded,
 }) {
+  const dispatch = useDispatch();
+  const router = useRouter();
   const carouselRef = useRef(null);
   const preloadedImagesRef = useRef(new Set());
   const imageWheelHandlersRef = useRef(new Map());
   const imageTouchHandlersRef = useRef(new Map());
   const pinchStateRef = useRef(new Map());
   const lastTapRef = useRef(new Map());
+  const sessionExpiredRef = useRef(null);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
   const [hovered, setHovered] = useState(null);
@@ -125,6 +130,21 @@ export default function Quizz({
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const cardId = _id || id;
   const classId = user?.classId ? String(user.classId) : "";
+
+  if (!sessionExpiredRef.current) {
+    sessionExpiredRef.current = createSessionExpiredRedirect({
+      dispatch,
+      router,
+      notify: (msg) => messageApi.error(msg),
+      delayMs: 3000,
+    });
+  }
+
+  useEffect(() => {
+    return () => sessionExpiredRef.current?.cancel?.();
+  }, []);
+
+  const handleSessionExpired = () => sessionExpiredRef.current?.trigger?.();
 
   const toBlurFile = (filename) => {
     const lastDot = filename.lastIndexOf(".");
@@ -392,7 +412,13 @@ export default function Quizz({
           `${urlFetch}/quizzs/historique?cardId=${cardId}`,
           { credentials: "include" }
         );
-        const payload = await res.json();
+        if (res.status === 401) {
+          if (!cancelled) {
+            handleSessionExpired();
+          }
+          return;
+        }
+        const payload = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (res.ok && payload?.alreadyDone) {
           const dateStr = payload.date
@@ -455,7 +481,11 @@ export default function Quizz({
         credentials: "include",
         body: JSON.stringify({ cardId, reponses, id_classe: classId }),
       });
-      const payload = await res.json();
+      if (res.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         messageApi.error(
           payload?.message || "Enregistrement des reponses impossible."

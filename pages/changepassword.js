@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -7,6 +7,8 @@ import * as yup from "yup";
 import zxcvbn from "zxcvbn";
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/router";
+import { useDispatch } from "react-redux";
+import { createSessionExpiredRedirect } from "../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const URL_BACK = process.env.NEXT_PUBLIC_URL_BACK;
@@ -34,6 +36,7 @@ const schema = yup.object().shape({
 
 export default function ChangePassword() {
   const router = useRouter();
+  const dispatch = useDispatch();
   const from = Array.isArray(router.query?.from)
     ? router.query.from[0]
     : router.query?.from;
@@ -45,6 +48,18 @@ export default function ChangePassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCardVisible, setIsCardVisible] = useState(false);
   const [isVeilVisible, setIsVeilVisible] = useState(false);
+  const sessionExpiredRef = useRef(null);
+
+  if (!sessionExpiredRef.current) {
+    sessionExpiredRef.current = createSessionExpiredRedirect({
+      dispatch,
+      router,
+      notify: setMessage,
+      delayMs: 3000,
+    });
+  }
+
+  const handleSessionExpired = () => sessionExpiredRef.current?.trigger?.();
 
   // 🔹 Indicateurs de robustesse
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -168,21 +183,30 @@ export default function ChangePassword() {
 
   // ✅ Vérification si l'utilisateur est connecté
   useEffect(() => {
+    return () => sessionExpiredRef.current?.cancel?.();
+  }, []);
+
+  // ✅ Vérification si l'utilisateur est connecté
+  useEffect(() => {
     const checkAuth = async () => {
       try {
         const res = await fetch(`${urlFetch}/users/me`, {
           method: "GET",
           credentials: "include",
         });
+        if (res.status === 401) {
+          handleSessionExpired();
+          return;
+        }
         if (!res.ok) {
-          router.push("/"); // redirige si non connecté ou token expiré
+          router.replace("/"); // redirige si non connecté
         }
       } catch (err) {
-        router.push("/");
+        router.replace("/");
       }
     };
     checkAuth();
-  }, [router]);
+  }, [dispatch, router]);
 
   const handleReturn = () => {
     if (shouldReturnToIndexBis) {
@@ -206,7 +230,7 @@ export default function ChangePassword() {
         }),
         credentials: "include",
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (res.ok) {
         setMessage("Mot de passe changé avec succès ✅");
         reset();
@@ -219,6 +243,8 @@ export default function ChangePassword() {
               json.remainingAttempts
             } tentative(s).`
           );
+        } else if (res.status === 401) {
+          handleSessionExpired();
         } else {
           setMessage(
             json?.error ||

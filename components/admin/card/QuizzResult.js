@@ -210,7 +210,7 @@ export default function Quizz({
         );
       }
     } catch (err) {
-      const handled = handleAuthError(err, { dispatch, router });
+      const handled = handleAuthError(err, { dispatch, router, silent: true });
       if (!handled) {
         message.error("Erreur lors du chargement des resultats.");
       }
@@ -246,7 +246,7 @@ export default function Quizz({
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
         message.error(error.message || "Erreur lors du telechargement.");
       }

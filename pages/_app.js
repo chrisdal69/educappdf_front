@@ -6,7 +6,6 @@ import { ConfigProvider, unstableSetRender } from 'antd';
 import themeTokens from '../themeTokens';
 import { appFonts, fontFamily } from '../themeFonts';
 import { createRoot } from 'react-dom/client';
-import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
@@ -14,6 +13,7 @@ import authReducer from "../reducers/authSlice";
 import cardsMaths from "../reducers/cardsMathsSlice";
 import { useEffect } from "react";
 import { setAuthenticated, setAuthReady } from "../reducers/authSlice";
+import AuthGate from "../components/AuthGate";
 
 const store = configureStore({
  reducer: {
@@ -101,7 +101,9 @@ function App({ Component, pageProps }) {
           {cssVars}
         </style>
         <div className={`${appFonts.sans.variable} ${appFonts.display.variable} ${appFonts.script.variable} app-root`}>
-          <Component {...pageProps} />
+          <AuthGate>
+            <Component {...pageProps} />
+          </AuthGate>
           <Footer/>
         </div>
       </ConfigProvider>

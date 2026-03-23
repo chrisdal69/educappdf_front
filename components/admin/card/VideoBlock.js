@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/router";
 import { Button, Carousel, Input, Popover, Select, message } from "antd";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -15,6 +16,7 @@ import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import Tooltip from "./TooltipClickClose";
 import { buildCardBaseUrl } from "../../../utils/gcsPaths";
+import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -119,8 +121,15 @@ export default function Video({
   expanded,
 }) {
   const dispatch = useDispatch();
+  const router = useRouter();
   const cardsData = useSelector((state) => state.cardsMaths.data);
   const cardId = _id || id;
+
+  const authFetch = async (url, options) => {
+    const response = await fetch(url, options);
+    throwIfUnauthorized(response);
+    return response;
+  };
 
   const [videos, setVideos] = useState(sanitizeVideoList(video));
   const [current, setCurrent] = useState(0);
@@ -294,7 +303,7 @@ export default function Video({
     }
     setActionKey("add");
     try {
-      const response = await fetch(`${urlFetch}/cards/${cardId}/video`, {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/video`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -325,8 +334,11 @@ export default function Video({
       setAddPopoverOpen(false);
       message.success("Video ajoutee.");
     } catch (error) {
-      console.error("Erreur ajout video", error);
-      message.error(error.message || "Erreur lors de l'ajout.");
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur ajout video", error);
+        message.error(error.message || "Erreur lors de l'ajout.");
+      }
     } finally {
       setActionKey("");
     }
@@ -344,7 +356,7 @@ export default function Video({
     const key = `delete-${deleteIndex}`;
     setActionKey(key);
     try {
-      const response = await fetch(`${urlFetch}/cards/${cardId}/video`, {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/video`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -372,8 +384,11 @@ export default function Video({
       setDeletePopoverOpen(false);
       message.success("Video supprimee.");
     } catch (error) {
-      console.error("Erreur suppression video", error);
-      message.error(error.message || "Erreur lors de la suppression.");
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur suppression video", error);
+        message.error(error.message || "Erreur lors de la suppression.");
+      }
     } finally {
       setActionKey("");
     }
@@ -390,7 +405,7 @@ export default function Video({
       field === "href" ? toYoutubeEmbed(editField.value) : editField.value;
     const payload = { index, [field]: value ?? "" };
     try {
-      const response = await fetch(`${urlFetch}/cards/${cardId}/video`, {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/video`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -415,8 +430,11 @@ export default function Video({
       setEditField({ index: null, field: null, value: "" });
       message.success("Video mise a jour.");
     } catch (error) {
-      console.error("Erreur edition video", error);
-      message.error(error.message || "Erreur lors de la mise a jour.");
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur edition video", error);
+        message.error(error.message || "Erreur lors de la mise a jour.");
+      }
     } finally {
       setActionKey("");
     }

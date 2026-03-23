@@ -358,9 +358,9 @@ export default function Contenu({
       message.success("Contenu enregistre.");
       setIsEditorOpen(false);
     } catch (error) {
-      console.error("Erreur lors de la mise a jour du contenu", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur lors de la mise a jour du contenu", error);
         message.error(error.message || "Erreur lors de la sauvegarde.");
       }
     } finally {
@@ -436,9 +436,9 @@ export default function Contenu({
       syncCardsStore(updatedCard, { bg: nextBg });
       message.success("Image importee.");
     } catch (error) {
-      console.error("Erreur lors de l'upload de l'image de fond", error);
-      const handled = handleAuthError(error, { dispatch, router });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
       if (!handled) {
+        console.error("Erreur lors de l'upload de l'image de fond", error);
         message.error(error.message || "Erreur lors de l'upload.");
       }
     } finally {

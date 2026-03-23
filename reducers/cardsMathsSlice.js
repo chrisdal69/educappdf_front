@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { clearAuth } from "./authSlice";
 
 const initialState = {
   data: [],
@@ -11,7 +12,7 @@ const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
 
 export const fetchCardsMaths = createAsyncThunk(
   "cardsMaths/fetchCardsMaths",
-  async (arg, { rejectWithValue, getState }) => {
+  async (arg, { rejectWithValue, getState, dispatch }) => {
     try {
       const debugDelayMs = Number(
         arg?.debugDelayMs ?? process.env.NEXT_PUBLIC_DEBUG_CARDS_DELAY_MS ?? 0
@@ -31,6 +32,12 @@ export const fetchCardsMaths = createAsyncThunk(
           credentials: "include",
         }
       );
+
+      if (response.status === 401) {
+        dispatch(clearAuth());
+        return rejectWithValue("Session expirée, veuillez vous reconnecter.");
+      }
+
       const payload = await response.json();
       if (!response.ok) {
         return rejectWithValue(

@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import Image from "next/image";
+import { useRouter } from "next/router";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import { useDispatch, useSelector } from "react-redux";
@@ -36,6 +37,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import Tooltip from "./TooltipClickClose";
 import { buildCardBaseUrl } from "../../../utils/gcsPaths";
+import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -234,6 +236,7 @@ export default function FlashBlock({
   expanded,
 }) {
   const dispatch = useDispatch();
+  const router = useRouter();
   const cardsData = useSelector((state) => state.cardsMaths.data);
   const carouselRef = useRef(null);
   const pendingSlideRef = useRef(null);
@@ -251,6 +254,12 @@ export default function FlashBlock({
   const [uploadingImageFor, setUploadingImageFor] = useState("");
 
   const cardId = _id || id;
+
+  const authFetch = async (url, options) => {
+    const response = await fetch(url, options);
+    throwIfUnauthorized(response);
+    return response;
+  };
 
   const formulaLinks = (
     <>
@@ -394,14 +403,14 @@ export default function FlashBlock({
     };
 
     setActionKey(loadingKey);
-    try {
-      const response = await fetch(`${urlFetch}/cards/${cardId}/flash`, {
+      try {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/flash`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expiree ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -429,6 +438,8 @@ export default function FlashBlock({
       }
       return true;
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return false;
       console.error("Erreur lors de la sauvegarde des flash cards :", error);
       message.error(error.message || "Erreur lors de la sauvegarde.");
       return false;
@@ -459,13 +470,13 @@ export default function FlashBlock({
     pendingSlideRef.current = insertIndex;
     setActionKey("add-flash");
     try {
-      const response = await fetch(`${urlFetch}/cards/${cardId}/flash`, {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/flash`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ position: insertPos }),
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expiree ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -503,8 +514,11 @@ export default function FlashBlock({
       setAddCardOpen(false);
       setInsertPos("end");
     } catch (error) {
-      console.error("Erreur lors de l'ajout d'une flash card :", error);
-      message.error(error.message || "Erreur lors de l'ajout.");
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur lors de l'ajout d'une flash card :", error);
+        message.error(error.message || "Erreur lors de l'ajout.");
+      }
       pendingSlideRef.current = null;
     } finally {
       setActionKey("");
@@ -524,7 +538,7 @@ export default function FlashBlock({
     pendingSlideRef.current = nextIndex;
     setActionKey("delete-flash");
     try {
-      const response = await fetch(`${urlFetch}/cards/${cardId}/flash`, {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/flash`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -533,7 +547,7 @@ export default function FlashBlock({
           flashId: flashList[current]?.id,
         }),
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expiree ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -553,8 +567,11 @@ export default function FlashBlock({
       message.success("Flash card supprimee.");
       setDeleteCardOpen(false);
     } catch (error) {
-      console.error("Erreur lors de la suppression d'une flash card :", error);
-      message.error(error.message || "Erreur lors de la suppression.");
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur lors de la suppression d'une flash card :", error);
+        message.error(error.message || "Erreur lors de la suppression.");
+      }
       pendingSlideRef.current = null;
     } finally {
       setActionKey("");
@@ -616,12 +633,12 @@ export default function FlashBlock({
     formData.append("num", `${num}`);
 
     try {
-      const response = await fetch(`${urlFetch}/cards/${cardId}/flash/image`, {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/flash/image`, {
         method: "POST",
         credentials: "include",
         body: formData,
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expiree ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -643,6 +660,8 @@ export default function FlashBlock({
       }
       return true;
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return false;
       console.error("Erreur upload image flash", error);
       message.error(error.message || "Erreur lors de l'upload.");
       return false;
@@ -666,7 +685,7 @@ export default function FlashBlock({
     const key = getActionKey("delete-image", flashItem.id, field);
     setActionKey(key);
     try {
-      const response = await fetch(`${urlFetch}/cards/${cardId}/flash/image`, {
+      const response = await authFetch(`${urlFetch}/cards/${cardId}/flash/image`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -678,7 +697,7 @@ export default function FlashBlock({
           num,
         }),
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expiree ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -697,8 +716,11 @@ export default function FlashBlock({
       }
       message.success("Image supprimee.");
     } catch (error) {
-      console.error("Erreur suppression image flash", error);
-      message.error(error.message || "Erreur lors de la suppression.");
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur suppression image flash", error);
+        message.error(error.message || "Erreur lors de la suppression.");
+      }
     } finally {
       setActionKey("");
     }
@@ -825,13 +847,13 @@ export default function FlashBlock({
       duration: 0,
     });
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${urlFetch}/cards/${cardId}/flash/export/zip`,
         {
           credentials: "include",
         }
       );
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expiree ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -854,8 +876,11 @@ export default function FlashBlock({
 
       message.success({ content: "Export termine.", key: exportKey });
     } catch (error) {
-      console.error("Erreur export flash", error);
-      message.error({ content: "Erreur lors de l'export.", key: exportKey });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur export flash", error);
+        message.error({ content: "Erreur lors de l'export.", key: exportKey });
+      }
     } finally {
       setActionKey("");
     }

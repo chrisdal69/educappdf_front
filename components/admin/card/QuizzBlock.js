@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/router";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
 import { useDispatch, useSelector } from "react-redux";
@@ -31,6 +32,7 @@ import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 import { setCardsMaths } from "../../../reducers/cardsMathsSlice";
 import Tooltip from "./TooltipClickClose";
 import { buildCardBaseUrl } from "../../../utils/gcsPaths";
+import { handleAuthError, throwIfUnauthorized } from "../../../utils/auth";
 
 const NODE_ENV = process.env.NODE_ENV;
 const urlFetch = NODE_ENV === "production" ? "" : "http://localhost:3000";
@@ -258,6 +260,7 @@ export default function Quizz({
   expanded,
 }) {
   const dispatch = useDispatch();
+  const router = useRouter();
   const cardsData = useSelector((state) => state.cardsMaths.data);
   const carouselRef = useRef(null);
   const pendingSlideRef = useRef(null);
@@ -288,6 +291,12 @@ export default function Quizz({
   const [imageRatios, setImageRatios] = useState({});
 
   const cardId = _id || id;
+
+  const authFetch = async (url, options) => {
+    const response = await fetch(url, options);
+    throwIfUnauthorized(response);
+    return response;
+  };
 
   const formulaLinks = (
     <>
@@ -455,13 +464,13 @@ export default function Quizz({
 
     setActionKey(loadingKey);
     try {
-      const response = await fetch(`${urlFetch}/quizzs/${cardId}`, {
+      const response = await authFetch(`${urlFetch}/quizzs/${cardId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expirée ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -499,6 +508,8 @@ export default function Quizz({
       }
       return true;
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return false;
       console.error("Erreur lors de la sauvegarde du quizz :", error);
       message.error(error.message || "Erreur lors de la sauvegarde.");
       return false;
@@ -690,12 +701,12 @@ export default function Quizz({
     formData.append("num", `${num}`);
 
     try {
-      const response = await fetch(`${urlFetch}/quizzs/${cardId}/image`, {
+      const response = await authFetch(`${urlFetch}/quizzs/${cardId}/image`, {
         method: "POST",
         credentials: "include",
         body: formData,
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expirée ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -717,6 +728,8 @@ export default function Quizz({
       }
       return true;
     } catch (error) {
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (handled) return false;
       console.error("Erreur upload image quizz", error);
       message.error(error.message || "Erreur lors de l'upload.");
       return false;
@@ -736,7 +749,7 @@ export default function Quizz({
     const key = getActionKey("delete-image", question.id);
     setActionKey(key);
     try {
-      const response = await fetch(`${urlFetch}/quizzs/${cardId}/image`, {
+      const response = await authFetch(`${urlFetch}/quizzs/${cardId}/image`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -747,7 +760,7 @@ export default function Quizz({
           num,
         }),
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expirée ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -766,8 +779,11 @@ export default function Quizz({
       }
       message.success("Image supprimee.");
     } catch (error) {
-      console.error("Erreur suppression image quizz", error);
-      message.error(error.message || "Erreur lors de la suppression.");
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur suppression image quizz", error);
+        message.error(error.message || "Erreur lors de la suppression.");
+      }
     } finally {
       setActionKey("");
     }
@@ -893,10 +909,10 @@ export default function Quizz({
       duration: 0,
     });
     try {
-      const response = await fetch(`${urlFetch}/quizzs/${cardId}/export/zip`, {
+      const response = await authFetch(`${urlFetch}/quizzs/${cardId}/export/zip`, {
         credentials: "include",
       });
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 403) {
         throw new Error(
           "Session expiree ou droits insuffisants. Merci de vous reconnecter."
         );
@@ -919,8 +935,11 @@ export default function Quizz({
 
       message.success({ content: "Export termine.", key: exportKey });
     } catch (error) {
-      console.error("Erreur export quizz", error);
-      message.error({ content: "Erreur lors de l'export.", key: exportKey });
+      const handled = handleAuthError(error, { dispatch, router, silent: true });
+      if (!handled) {
+        console.error("Erreur export quizz", error);
+        message.error({ content: "Erreur lors de l'export.", key: exportKey });
+      }
     } finally {
       setActionKey("");
     }

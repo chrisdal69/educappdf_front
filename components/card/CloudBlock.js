@@ -137,9 +137,13 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
         credentials: "include",
       });
       let data = {};
+      let raw = "";
       try {
-        data = await res.json();
-      } catch (_) {}
+        raw = await res.text();
+        data = raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        data = raw ? { message: raw } : {};
+      }
 
       if (res.status === 403) {
         message.error(data.message || "Erreur d’autorisation");
@@ -184,9 +188,22 @@ const CloudBlock = ({ num, repertoire, classeDirectoryname, _id, bg, isExpanded 
         body: formData,
         credentials: "include",
       });
-      const data = await res.json();
-      setFilesCloud(data);
-      console.log(data);
+      let data = [];
+      try {
+        const raw = await res.text();
+        data = raw ? JSON.parse(raw) : [];
+      } catch (_) {
+        data = [];
+      }
+
+      if (!res.ok) {
+        console.error("Erreur recup fichiers cloud:", data);
+        return;
+      }
+
+      const nextFiles = Array.isArray(data) ? data : [];
+      setFilesCloud(nextFiles);
+      console.log(nextFiles);
     } catch (err) {
       const handled = handleAuthError(err, { dispatch, router, silent: true });
       if (!handled) {
